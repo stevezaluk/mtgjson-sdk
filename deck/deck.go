@@ -20,7 +20,7 @@ Returns
 slice[card.Card] - The results
 */
 func GetMainboard(deck deck.Deck) []card_model.Card {
-	return card.GetCards(deck.MainBoard)
+	return card.GetCards(deck.Mainboard)
 }
 
 /*
@@ -33,7 +33,7 @@ Returns
 slice[card.Card] - The results
 */
 func GetSideboard(deck deck.Deck) []card_model.Card {
-	return card.GetCards(deck.SideBoard)
+	return card.GetCards(deck.Sideboard)
 }
 
 /*
