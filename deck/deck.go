@@ -120,7 +120,7 @@ func GetDeck(code string) (deck.Deck, error) {
 }
 
 /*
-GetDecks - Fetch all decks available in the database
+IndexDecks - Fetch all decks available in the database
 
 Parameters:
 limit (int64) - Limit the ammount of results you want
