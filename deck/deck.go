@@ -4,7 +4,7 @@ import (
 	"github.com/stevezaluk/mtgjson-sdk/context"
 
 	card_model "github.com/stevezaluk/mtgjson-models/card"
-	"github.com/stevezaluk/mtgjson-models/deck"
+	deck_model "github.com/stevezaluk/mtgjson-models/deck"
 	"github.com/stevezaluk/mtgjson-models/errors"
 	card "github.com/stevezaluk/mtgjson-sdk/card"
 	"go.mongodb.org/mongo-driver/bson"
@@ -19,7 +19,7 @@ None
 Returns
 slice[card.Card] - The results
 */
-func GetMainboard(deck deck.Deck) []card_model.Card {
+func GetMainboard(deck deck_model.Deck) []card_model.Card {
 	return card.GetCards(deck.Mainboard)
 }
 
@@ -32,7 +32,7 @@ None
 Returns
 slice[card.Card] - The results
 */
-func GetSideboard(deck deck.Deck) []card_model.Card {
+func GetSideboard(deck deck_model.Deck) []card_model.Card {
 	return card.GetCards(deck.Sideboard)
 }
 
@@ -45,7 +45,7 @@ None
 Returns
 slice[card.Card] - The results
 */
-func GetCommanders(deck deck.Deck) []card_model.Card {
+func GetCommanders(deck deck_model.Deck) []card_model.Card {
 	return card.GetCards(deck.Commander)
 }
 
@@ -58,7 +58,7 @@ None
 Returns:
 error.ErrDeckUpdateFailed - If database.Replace returns an error
 */
-func ReplaceDeck(deck deck.Deck) error {
+func ReplaceDeck(deck deck_model.Deck) error {
 	var database = context.GetDatabase()
 
 	results := database.Replace("deck", bson.M{"code": deck.Code}, &deck)
@@ -105,8 +105,8 @@ Returns
 Deck (deck.Deck) - A deck model
 errors.ErrNoDeck - If the deck does not exist
 */
-func GetDeck(code string) (deck.Deck, error) {
-	var result deck.Deck
+func GetDeck(code string) (deck_model.Deck, error) {
+	var result deck_model.Deck
 
 	var database = context.GetDatabase()
 
@@ -129,8 +129,8 @@ Returns:
 result (slice[deck.Deck]) - The results
 errors.ErrNoDecks - If no decks exist in the database
 */
-func IndexDecks(limit int64) ([]deck.Deck, error) {
-	var result []deck.Deck
+func IndexDecks(limit int64) ([]deck_model.Deck, error) {
+	var result []deck_model.Deck
 
 	var database = context.GetDatabase()
 
@@ -149,7 +149,7 @@ Parameters:
 errors.ErrDeskMissingId - If the deck passed in the parameter does not have a valid name or code
 errors.ErrDeckAlreadyExists - If the deck already exists under the same code
 */
-func NewDeck(deck deck.Deck) error {
+func NewDeck(deck deck_model.Deck) error {
 	if deck.Name == "" || deck.Code == "" {
 		return errors.ErrDeckMissingId
 	}
