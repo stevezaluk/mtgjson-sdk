@@ -11,7 +11,7 @@ import (
 )
 
 /*
-FetchMainboard - Iterate through the UUID's in the main board and return card models
+GetMainboard - Iterate through the UUID's in the main board and return card models
 
 Parameters:
 None
@@ -19,12 +19,12 @@ None
 Returns
 slice[card.Card] - The results
 */
-func FetchMainboard(deck deck.Deck) []card_model.Card {
+func GetMainboard(deck deck.Deck) []card_model.Card {
 	return card.GetCards(deck.MainBoard)
 }
 
 /*
-FetchSideboard - Iterate through the UUID's in the side board and return card models
+GetSideboard - Iterate through the UUID's in the side board and return card models
 
 Parameters:
 None
@@ -32,12 +32,12 @@ None
 Returns
 slice[card.Card] - The results
 */
-func FetchSideboard(deck deck.Deck) []card_model.Card {
+func GetSideboard(deck deck.Deck) []card_model.Card {
 	return card.GetCards(deck.SideBoard)
 }
 
 /*
-FetchCommander - Iterate through the UUID's in the commander board and return card models
+GetCommanders - Iterate through the UUID's in the commander board and return card models
 
 Parameters:
 None
@@ -45,7 +45,7 @@ None
 Returns
 slice[card.Card] - The results
 */
-func FetchCommander(deck deck.Deck) []card_model.Card {
+func GetCommanders(deck deck.Deck) []card_model.Card {
 	return card.GetCards(deck.Commander)
 }
 
