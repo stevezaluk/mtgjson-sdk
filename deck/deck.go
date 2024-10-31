@@ -6,8 +6,8 @@ import (
 	card_model "github.com/stevezaluk/mtgjson-models/card"
 	"github.com/stevezaluk/mtgjson-models/deck"
 	"github.com/stevezaluk/mtgjson-models/errors"
-	"go.mongodb.org/mongo-driver/bson"
 	card "github.com/stevezaluk/mtgjson-sdk/card"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 /*
@@ -58,7 +58,7 @@ None
 Returns:
 error.ErrDeckUpdateFailed - If database.Replace returns an error
 */
-func UpdateDeck(deck deck.Deck) error {
+func ReplaceDeck(deck deck.Deck) error {
 	var database = context.GetDatabase()
 
 	results := database.Replace("deck", bson.M{"code": deck.Code}, &deck)
@@ -129,7 +129,7 @@ Returns:
 result (slice[deck.Deck]) - The results
 errors.ErrNoDecks - If no decks exist in the database
 */
-func GetDecks(limit int64) ([]deck.Deck, error) {
+func IndexDecks(limit int64) ([]deck.Deck, error) {
 	var result []deck.Deck
 
 	var database = context.GetDatabase()
