@@ -4,14 +4,14 @@ import (
 	"github.com/stevezaluk/mtgjson-sdk/context"
 
 	card_model "github.com/stevezaluk/mtgjson-models/card"
-	"github.com/stevezaluk/mtgjson-models/deck"
+	deck_model "github.com/stevezaluk/mtgjson-models/deck"
 	"github.com/stevezaluk/mtgjson-models/errors"
-	"go.mongodb.org/mongo-driver/bson"
 	card "github.com/stevezaluk/mtgjson-sdk/card"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 /*
-FetchMainboard - Iterate through the UUID's in the main board and return card models
+GetMainboard - Iterate through the UUID's in the main board and return card models
 
 Parameters:
 None
@@ -19,12 +19,12 @@ None
 Returns
 slice[card.Card] - The results
 */
-func FetchMainboard(deck deck.Deck) []card_model.Card {
-	return card.GetCards(deck.MainBoard)
+func GetMainboard(deck deck_model.Deck) []card_model.Card {
+	return card.GetCards(deck.Mainboard)
 }
 
 /*
-FetchSideboard - Iterate through the UUID's in the side board and return card models
+GetSideboard - Iterate through the UUID's in the side board and return card models
 
 Parameters:
 None
@@ -32,12 +32,12 @@ None
 Returns
 slice[card.Card] - The results
 */
-func FetchSideboard(deck deck.Deck) []card_model.Card {
-	return card.GetCards(deck.SideBoard)
+func GetSideboard(deck deck_model.Deck) []card_model.Card {
+	return card.GetCards(deck.Sideboard)
 }
 
 /*
-FetchCommander - Iterate through the UUID's in the commander board and return card models
+GetCommanders - Iterate through the UUID's in the commander board and return card models
 
 Parameters:
 None
@@ -45,7 +45,7 @@ None
 Returns
 slice[card.Card] - The results
 */
-func FetchCommander(deck deck.Deck) []card_model.Card {
+func GetCommanders(deck deck_model.Deck) []card_model.Card {
 	return card.GetCards(deck.Commander)
 }
 
@@ -58,7 +58,7 @@ None
 Returns:
 error.ErrDeckUpdateFailed - If database.Replace returns an error
 */
-func UpdateDeck(deck deck.Deck) error {
+func ReplaceDeck(deck deck_model.Deck) error {
 	var database = context.GetDatabase()
 
 	results := database.Replace("deck", bson.M{"code": deck.Code}, &deck)
@@ -105,8 +105,8 @@ Returns
 Deck (deck.Deck) - A deck model
 errors.ErrNoDeck - If the deck does not exist
 */
-func GetDeck(code string) (deck.Deck, error) {
-	var result deck.Deck
+func GetDeck(code string) (deck_model.Deck, error) {
+	var result deck_model.Deck
 
 	var database = context.GetDatabase()
 
@@ -120,7 +120,27 @@ func GetDeck(code string) (deck.Deck, error) {
 }
 
 /*
-GetDecks - Fetch all decks available in the database
+GetDeckContents - Update the `contents` field in the passed deck model with the requested cards
+
+Parameters:
+deck (deck_model.Deck*) - A pointer to the deck you want to update
+
+Returns:
+None
+*/
+func GetDeckContents(deck *deck_model.Deck) {
+	var mainBoard = deck.GetBoard(deck_model.MAINBOARD)
+	*mainBoard = append(*mainBoard, GetMainboard(*deck)...)
+
+	var sideBoard = deck.GetBoard(deck_model.SIDEBOARD)
+	*sideBoard = append(*sideBoard, GetSideboard(*deck)...)
+
+	var commanderBoard = deck.GetBoard(deck_model.COMMANDER)
+	*commanderBoard = append(*commanderBoard, GetCommanders(*deck)...)
+}
+
+/*
+IndexDecks - Fetch all decks available in the database
 
 Parameters:
 limit (int64) - Limit the ammount of results you want
@@ -129,8 +149,8 @@ Returns:
 result (slice[deck.Deck]) - The results
 errors.ErrNoDecks - If no decks exist in the database
 */
-func GetDecks(limit int64) ([]deck.Deck, error) {
-	var result []deck.Deck
+func IndexDecks(limit int64) ([]deck_model.Deck, error) {
+	var result []deck_model.Deck
 
 	var database = context.GetDatabase()
 
@@ -149,7 +169,7 @@ Parameters:
 errors.ErrDeskMissingId - If the deck passed in the parameter does not have a valid name or code
 errors.ErrDeckAlreadyExists - If the deck already exists under the same code
 */
-func NewDeck(deck deck.Deck) error {
+func NewDeck(deck deck_model.Deck) error {
 	if deck.Name == "" || deck.Code == "" {
 		return errors.ErrDeckMissingId
 	}
