@@ -120,6 +120,26 @@ func GetDeck(code string) (deck_model.Deck, error) {
 }
 
 /*
+GetDeckContents - Update the `contents` field in the passed deck model with the requested cards
+
+Parameters:
+deck (deck_model.Deck*) - A pointer to the deck you want to update
+
+Returns:
+None
+*/
+func GetDeckContents(deck *deck_model.Deck) {
+	var mainBoard = deck.GetBoard(deck_model.MAINBOARD)
+	*mainBoard = append(*mainBoard, GetMainboard(*deck)...)
+
+	var sideBoard = deck.GetBoard(deck_model.SIDEBOARD)
+	*sideBoard = append(*sideBoard, GetSideboard(*deck)...)
+
+	var commanderBoard = deck.GetBoard(deck_model.COMMANDER)
+	*commanderBoard = append(*commanderBoard, GetCommanders(*deck)...)
+}
+
+/*
 IndexDecks - Fetch all decks available in the database
 
 Parameters:
