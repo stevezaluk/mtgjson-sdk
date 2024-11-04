@@ -22,7 +22,7 @@ func (c Config) BuildUri() string {
 	return strings.Join(s, "")
 }
 
-func (c *Config) Parse(path string) { // convert to abs path
+func Parse(path string) Config { // convert to abs path
 	if strings.HasPrefix(path, "~") {
 		home := os.Getenv("HOME")
 		path = strings.ReplaceAll(path, "~", home)
@@ -41,14 +41,19 @@ func (c *Config) Parse(path string) { // convert to abs path
 
 	bytes, _ := io.ReadAll(file)
 
-	errors := json.Unmarshal([]byte(bytes), &c)
+	var ret Config
+	errors := json.Unmarshal([]byte(bytes), &ret)
 	if errors != nil {
 		fmt.Println(errors.Error())
 		panic(1)
 	}
+
+	return ret
 }
 
-func (c *Config) ParseFromEnv() {
+func ParseFromEnv() Config {
+	var ret Config
+
 	var envs [4]string = [4]string{"MONGO_IP", "MONGO_PORT", "MONGO_USER", "MONGO_PASS"}
 	for index, env := range envs {
 		env_set, exists := os.LookupEnv(env)
@@ -58,18 +63,20 @@ func (c *Config) ParseFromEnv() {
 		}
 
 		if env == "MONGO_IP" {
-			c.MongoIPAddress = env_set
+			ret.MongoIPAddress = env_set
 		} else if env == "MONGO_PORT" {
 			port, err := strconv.Atoi(env_set)
 			if err != nil {
 				fmt.Println("[error] Failed to convert Mongo Port to string")
 				panic(1)
 			}
-			c.MongoPort = port
+			ret.MongoPort = port
 		} else if env == "MONGO_USER" {
-			c.MongoUsername = env_set
+			ret.MongoUsername = env_set
 		} else if env == "MONGO_PASS" {
-			c.MongoPassword = env_set
+			ret.MongoPassword = env_set
 		}
 	}
+
+	return ret
 }
