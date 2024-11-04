@@ -3,13 +3,15 @@ package server
 import (
 	"context"
 	"fmt"
+
+	"github.com/stevezaluk/mtgjson-sdk/config"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Database struct {
-	Config   Config
+	Config   config.Config
 	Client   *mongo.Client
 	Database *mongo.Database
 }
