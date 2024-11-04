@@ -144,6 +144,32 @@ func NewCard(card card.Card) error {
 }
 
 /*
+DeleteCard - Delete a card from the database
+
+Parmeters:
+uuid (string) - The mtgsonv4id you want to remove from the database
+
+Returns:
+errors.ErrNoCard - If the card does not exist
+errors.ErrCardDeleteFailed - If the card was not deleted
+*/
+func DeleteCard(uuid string) error {
+	var database = context.GetDatabase()
+
+	query := bson.M{"identifiers.mtgjsonv4id": uuid}
+	result := database.Delete("card", query)
+	if result == nil {
+		return errors.ErrNoCard
+	}
+
+	if result.DeletedCount != 1 {
+		return errors.ErrCardDeleteFailed
+	}
+
+	return nil
+}
+
+/*
 IndexCards - Return all cards from the database
 
 Parameters:
