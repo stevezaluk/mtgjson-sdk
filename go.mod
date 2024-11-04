@@ -4,7 +4,7 @@ go 1.23.2
 
 require (
 	github.com/spf13/pflag v1.0.5
-	github.com/stevezaluk/mtgjson-models v1.0.4
+	github.com/stevezaluk/mtgjson-models v1.0.7
 	go.mongodb.org/mongo-driver v1.17.1
 )
 
