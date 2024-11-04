@@ -17,6 +17,11 @@ type Config struct {
 	MongoPassword  string `json:"mongo_password"`
 }
 
+func (c Config) BuildUri() string {
+	s := []string{"mongodb://", c.MongoUsername, ":", c.MongoPassword, "@", c.MongoIPAddress, ":", strconv.Itoa(c.MongoPort)}
+	return strings.Join(s, "")
+}
+
 func (c *Config) Parse(path string) { // convert to abs path
 	if strings.HasPrefix(path, "~") {
 		home := os.Getenv("HOME")
@@ -67,9 +72,4 @@ func (c *Config) ParseFromEnv() {
 			c.MongoPassword = env_set
 		}
 	}
-}
-
-func (c Config) BuildUri() string {
-	s := []string{"mongodb://", c.MongoUsername, ":", c.MongoPassword, "@", c.MongoIPAddress, ":", strconv.Itoa(c.MongoPort)}
-	return strings.Join(s, "")
 }
