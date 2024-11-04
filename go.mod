@@ -3,7 +3,7 @@ module github.com/stevezaluk/mtgjson-sdk
 go 1.23.2
 
 require (
-	github.com/stevezaluk/mtgjson-models v1.0.7
+	github.com/stevezaluk/mtgjson-models v1.0.8
 	go.mongodb.org/mongo-driver v1.17.1
 )
 
