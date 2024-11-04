@@ -105,13 +105,42 @@ func GetCard(uuid string) (card.Card, error) {
 
 	var database = context.GetDatabase()
 
-	query := bson.M{"identifiers.mtgjsonV4Id": uuid}
+	query := bson.M{"identifiers.mtgjsonv4id": uuid}
 	results := database.Find("card", query, &result)
 	if results == nil {
 		return result, errors.ErrNoCard
 	}
 
 	return result, nil
+}
+
+/*
+NewCard - Create a new card from an existing card model
+
+Parameters:
+card (card.Card) - The card model you want to insert
+
+Returns:
+error.ErrCardMissingId - If the name or cardId is missing
+errors.ErrCardAlreadyExists - If there is a mtgjsonV4Id conflict
+
+TODO: Need better card validation here
+*/
+func NewCard(card card.Card) error {
+	cardId := card.Identifiers.MTGJsonV4Id
+	if card.Name == "" || cardId == "" {
+		return errors.ErrCardMissingId
+	}
+
+	_, err := GetCard(cardId)
+	if err != errors.ErrNoCard {
+		return errors.ErrCardAlreadyExist
+	}
+
+	var database = context.GetDatabase()
+	database.Insert("card", &card)
+
+	return nil
 }
 
 /*
