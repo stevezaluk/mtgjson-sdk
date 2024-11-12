@@ -2,13 +2,14 @@ package server
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
+
+	"strconv"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"strconv"
-	"strings"
 )
 
 type Database struct {
@@ -32,10 +33,10 @@ func (d *Database) Connect() {
 
 	opts.ApplyURI(uri)
 
-	fmt.Println("[info] Connecting to MongoDB")
+	slog.Info("Connecting to mongoDB")
 	client, err := mongo.Connect(context.TODO(), opts)
 	if err != nil {
-		fmt.Printf("[error] Failed to connect to MongoDB Database: %s", uri)
+		slog.Error("Failed to connect to MongoDB", "uri", uri)
 		panic(1) // panic here as this is a fatal error
 	}
 
@@ -46,10 +47,10 @@ func (d *Database) Connect() {
 func (d Database) Disconnect() {
 	d.Health() // this will throw an fatal error when
 
-	fmt.Println("[info] Disconnecting from MongoDB") // these will be replaced with proper logging in a future PR
+	slog.Info("Disconnecting from MongoDB")
 	err := d.Client.Disconnect(context.Background())
 	if err != nil {
-		fmt.Println("[error] Failed to disconnect from MongoDB: ", err)
+		slog.Error("Failed to disconnect from MongoDB", "err", err.Error())
 		panic(1)
 	}
 }
@@ -57,7 +58,7 @@ func (d Database) Disconnect() {
 func (d Database) Health() {
 	err := d.Client.Ping(context.TODO(), nil)
 	if err != nil {
-		fmt.Println("[error] Failed to ping MongoDB")
+		slog.Error("Failed to ping MognoDB for health", "err", err.Error())
 		panic(1)
 	}
 }
@@ -65,6 +66,7 @@ func (d Database) Health() {
 func (d Database) Find(collection string, query bson.M, model interface{}) any {
 	coll := d.Database.Collection(collection)
 
+	slog.Debug("Find Query", "collection", collection, "query", query)
 	err := coll.FindOne(context.TODO(), query).Decode(model)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -78,6 +80,7 @@ func (d Database) Find(collection string, query bson.M, model interface{}) any {
 func (d Database) Replace(collection string, query bson.M, model interface{}) any {
 	coll := d.Database.Collection(collection)
 
+	slog.Debug("ReplaceOne Query", "collection", collection, "query", query)
 	result, err := coll.ReplaceOne(context.TODO(), query, model)
 	if err == mongo.ErrNoDocuments {
 		return nil
@@ -89,6 +92,7 @@ func (d Database) Replace(collection string, query bson.M, model interface{}) an
 func (d Database) Delete(collection string, query bson.M) *mongo.DeleteResult {
 	coll := d.Database.Collection(collection)
 
+	slog.Debug("DeleteOne Query", "collection", collection, "query", query)
 	result, err := coll.DeleteOne(context.TODO(), query)
 	if err == mongo.ErrNoDocuments {
 		return nil
@@ -100,6 +104,7 @@ func (d Database) Delete(collection string, query bson.M) *mongo.DeleteResult {
 func (d Database) Insert(collection string, model interface{}) any {
 	coll := d.Database.Collection(collection)
 
+	slog.Debug("Insert Query", "collection", collection)
 	result, err := coll.InsertOne(context.TODO(), model)
 	if err != nil {
 		return nil

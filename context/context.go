@@ -2,8 +2,12 @@ package context
 
 import (
 	"context"
+	"log/slog"
+	"os"
+	"time"
 
 	"github.com/mitchellh/go-homedir"
+	"github.com/samber/slog-multi"
 	"github.com/spf13/viper"
 	"github.com/stevezaluk/mtgjson-sdk/server"
 )
@@ -34,6 +38,23 @@ func InitConfig(configPath string) {
 	if err := viper.ReadInConfig(); err != nil {
 		panic(err)
 	}
+}
+
+func InitLog() {
+	timestamp := time.Now().Format(time.RFC3339Nano)
+
+	filename := viper.GetString("log.path") + "/api-" + timestamp + ".json"
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	multiHandler := slogmulti.Fanout(
+		slog.NewJSONHandler(file, nil),
+		slog.NewTextHandler(os.Stdout, nil),
+	)
+
+	slog.SetDefault(slog.New(multiHandler))
 }
 
 func InitDatabase() {
