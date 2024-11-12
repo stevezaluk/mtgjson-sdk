@@ -4,21 +4,31 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/stevezaluk/mtgjson-sdk/config"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"strconv"
+	"strings"
 )
 
 type Database struct {
-	Config   config.Config
+	IPAddress string
+	Port      int
+	Username  string
+	Password  string
+
 	Client   *mongo.Client
 	Database *mongo.Database
 }
 
+func (d *Database) BuildUri() string {
+	s := []string{"mongodb://", d.Username, ":", d.Password, "@", d.IPAddress, ":", strconv.Itoa(d.Port)}
+	return strings.Join(s, "")
+}
+
 func (d *Database) Connect() {
 	opts := options.Client()
-	uri := d.Config.BuildUri()
+	uri := d.BuildUri()
 
 	opts.ApplyURI(uri)
 
