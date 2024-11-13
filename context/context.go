@@ -54,7 +54,18 @@ func InitLog() {
 		slog.NewTextHandler(os.Stdout, nil),
 	)
 
-	slog.SetDefault(slog.New(multiHandler))
+	logger := slog.New(multiHandler)
+
+	slog.SetDefault(logger)
+
+	ctx := context.WithValue(ServerContext, "logger", logger)
+	ServerContext = ctx
+}
+
+func GetLogger() *slog.Logger {
+	logger := ServerContext.Value("logger")
+
+	return logger.(*slog.Logger)
 }
 
 func InitDatabase() {
