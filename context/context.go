@@ -71,7 +71,7 @@ func GetLogger() *slog.Logger {
 func InitDatabase() {
 	var database server.Database
 
-	database.IPAddress = viper.GetString("mongo.ip_address")
+	database.IPAddress = viper.GetString("mongo.ip")
 	database.Port = viper.GetInt("mongo.port")
 	database.Username = viper.GetString("mongo.user")
 	database.Password = viper.GetString("mongo.pass")
