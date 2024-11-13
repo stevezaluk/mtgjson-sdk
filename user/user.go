@@ -23,3 +23,23 @@ func GetUser(username string) (user.User, error) {
 
 	return result, nil
 }
+
+/*
+Insert the contents of a User model in the MongoDB database. Returns ErrUserMissingId if the Username, Email, or CredentialId is not present
+Returns ErrUserAlreadyExist if a user already exists under this username
+*/
+func NewUser(user user.User) error {
+	if user.Username == "" || user.Email == "" || user.CredentialId == "" {
+		return errors.ErrUserMissingId
+	}
+
+	_, err := GetUser(user.Username)
+	if err != errors.ErrNoUser {
+		return errors.ErrUserAlreadyExist
+	}
+
+	var database = context.GetDatabase()
+	database.Insert("user", &user)
+
+	return nil
+}
