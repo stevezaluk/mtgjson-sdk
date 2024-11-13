@@ -5,7 +5,7 @@ go 1.23.2
 require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/spf13/viper v1.19.0
-	github.com/stevezaluk/mtgjson-models v1.0.9
+	github.com/stevezaluk/mtgjson-models v1.1.0
 	go.mongodb.org/mongo-driver v1.17.1
 )
 
