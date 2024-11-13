@@ -4,8 +4,9 @@ go 1.23.2
 
 require (
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/samber/slog-multi v1.2.4
 	github.com/spf13/viper v1.19.0
-	github.com/stevezaluk/mtgjson-models v1.1.1
+	github.com/stevezaluk/mtgjson-models v1.1.3
 	go.mongodb.org/mongo-driver v1.17.1
 )
 
@@ -21,7 +22,6 @@ require (
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/samber/lo v1.47.0 // indirect
-	github.com/samber/slog-multi v1.2.4 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
