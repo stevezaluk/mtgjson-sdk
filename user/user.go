@@ -1,10 +1,13 @@
 package user
 
 import (
+	"github.com/auth0/go-auth0/authentication/database"
 	"github.com/stevezaluk/mtgjson-models/errors"
 	"github.com/stevezaluk/mtgjson-models/user"
-	"github.com/stevezaluk/mtgjson-sdk/context"
+	mtgContext "github.com/stevezaluk/mtgjson-sdk/context"
 	"go.mongodb.org/mongo-driver/bson"
+
+	"context"
 )
 
 /*
@@ -13,7 +16,7 @@ Fetch a user based on there username. Returns ErrNoUser if the user cannot be fo
 func GetUser(username string) (user.User, error) {
 	var result user.User
 
-	var database = context.GetDatabase()
+	var database = mtgContext.GetDatabase()
 
 	query := bson.M{"username": username}
 	results := database.Find("user", query, &result)
@@ -38,8 +41,43 @@ func NewUser(user user.User) error {
 		return errors.ErrUserAlreadyExist
 	}
 
-	var database = context.GetDatabase()
+	var database = mtgContext.GetDatabase()
 	database.Insert("user", &user)
 
 	return nil
+}
+
+/*
+Register a new user with Auth0 and store there user model within the MongoDB database
+*/
+func RegisterUser(username string, email string, password string) (user.User, error) {
+	var ret user.User
+
+	ret.Username = username
+	ret.Email = email
+
+	if len(password) < 12 {
+		return ret, errors.ErrInvalidPasswordLength
+	}
+
+	userData := database.SignupRequest{
+		Connection: "Username-Password-Authentication",
+		Username:   ret.Username,
+		Password:   password,
+		Email:      ret.Email,
+	}
+
+	authAPI := mtgContext.GetAuthAPI()
+
+	_, err := authAPI.Database.Signup(context.Background(), userData)
+	if err != nil {
+		return ret, errors.ErrFailedToRegisterUser
+	}
+
+	err = NewUser(ret)
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
 }

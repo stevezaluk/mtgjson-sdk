@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/auth0/go-auth0/authentication"
 	"github.com/mitchellh/go-homedir"
 	"github.com/samber/slog-multi"
 	"github.com/spf13/viper"
@@ -91,4 +92,31 @@ func GetDatabase() server.Database {
 func DestroyDatabase() {
 	var database = GetDatabase()
 	database.Disconnect()
+}
+
+func InitAuthAPI() {
+	domain := viper.GetString("auth0.domain")
+	clientId := viper.GetString("auth0.client_id")
+	clientSecret := viper.GetString("auth0.client_secret")
+
+	authAPI, err := authentication.New(
+		context.Background(),
+		domain,
+		authentication.WithClientID(clientId),
+		authentication.WithClientSecret(clientSecret),
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	ctx := context.WithValue(ServerContext, "auth", authAPI)
+	ServerContext = ctx
+
+}
+
+func GetAuthAPI() *authentication.Authentication {
+	authAPI := ServerContext.Value("auth")
+
+	return authAPI.(*authentication.Authentication)
 }
