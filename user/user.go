@@ -25,11 +25,11 @@ func GetUser(username string) (user.User, error) {
 }
 
 /*
-Insert the contents of a User model in the MongoDB database. Returns ErrUserMissingId if the Username, Email, or CredentialId is not present
+Insert the contents of a User model in the MongoDB database. Returns ErrUserMissingId if the Username, or Emai is not present
 Returns ErrUserAlreadyExist if a user already exists under this username
 */
 func NewUser(user user.User) error {
-	if user.Username == "" || user.Email == "" || user.CredentialId == "" {
+	if user.Username == "" || user.Email == "" {
 		return errors.ErrUserMissingId
 	}
 
