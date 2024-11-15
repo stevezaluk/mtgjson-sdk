@@ -14,12 +14,12 @@ import (
 /*
 Fetch a user based on there username. Returns ErrNoUser if the user cannot be found
 */
-func GetUser(username string) (user.User, error) {
+func GetUser(email string) (user.User, error) {
 	var result user.User
 
 	var database = mtgContext.GetDatabase()
 
-	query := bson.M{"username": username}
+	query := bson.M{"email": email}
 	results := database.Find("user", query, &result)
 	if results == nil {
 		return result, errors.ErrNoUser
@@ -37,7 +37,7 @@ func NewUser(user user.User) error {
 		return errors.ErrUserMissingId
 	}
 
-	_, err := GetUser(user.Username)
+	_, err := GetUser(user.Email)
 	if err != errors.ErrNoUser {
 		return errors.ErrUserAlreadyExist
 	}
@@ -86,8 +86,8 @@ func RegisterUser(username string, email string, password string) (user.User, er
 /*
 Log a user in with there email address and password and return back a oauth.TokenSet
 */
-func LoginUser(username string, password string) (*oauth.TokenSet, error) {
-	_, err := GetUser(username)
+func LoginUser(email string, password string) (*oauth.TokenSet, error) {
+	_, err := GetUser(email)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func LoginUser(username string, password string) (*oauth.TokenSet, error) {
 	authAPI := mtgContext.GetAuthAPI()
 
 	userData := oauth.LoginWithPasswordRequest{
-		Username: username,
+		Username: email,
 		Password: password,
 	}
 
