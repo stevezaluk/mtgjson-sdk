@@ -2,6 +2,7 @@ package user
 
 import (
 	"github.com/auth0/go-auth0/authentication/database"
+	"github.com/auth0/go-auth0/authentication/oauth"
 	"github.com/stevezaluk/mtgjson-models/errors"
 	"github.com/stevezaluk/mtgjson-models/user"
 	mtgContext "github.com/stevezaluk/mtgjson-sdk/context"
@@ -80,4 +81,32 @@ func RegisterUser(username string, email string, password string) (user.User, er
 	}
 
 	return ret, nil
+}
+
+func LoginUser(username string, password string) (*oauth.TokenSet, error) {
+	_, err := GetUser(username)
+	if err != nil {
+		return nil, err
+	}
+
+	authAPI := mtgContext.GetAuthAPI()
+
+	userData := oauth.LoginWithPasswordRequest{
+		Username: username,
+		Password: password,
+	}
+
+	validateOpts := oauth.IDTokenValidationOptions{}
+
+	token, err := authAPI.OAuth.LoginWithPassword(
+		context.Background(),
+		userData,
+		validateOpts,
+	)
+
+	if err != nil {
+		return token, err
+	}
+
+	return token, nil
 }
