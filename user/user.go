@@ -83,6 +83,9 @@ func RegisterUser(username string, email string, password string) (user.User, er
 	return ret, nil
 }
 
+/*
+Log a user in with there email address and password and return back a oauth.TokenSet
+*/
 func LoginUser(username string, password string) (*oauth.TokenSet, error) {
 	_, err := GetUser(username)
 	if err != nil {
