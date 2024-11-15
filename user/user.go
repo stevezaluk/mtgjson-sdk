@@ -3,6 +3,7 @@ package user
 import (
 	"github.com/auth0/go-auth0/authentication/database"
 	"github.com/auth0/go-auth0/authentication/oauth"
+	"github.com/spf13/viper"
 	"github.com/stevezaluk/mtgjson-models/errors"
 	"github.com/stevezaluk/mtgjson-models/user"
 	mtgContext "github.com/stevezaluk/mtgjson-sdk/context"
@@ -97,6 +98,7 @@ func LoginUser(email string, password string) (*oauth.TokenSet, error) {
 	userData := oauth.LoginWithPasswordRequest{
 		Username: email,
 		Password: password,
+		Audience: viper.GetString("auth0.audience"),
 	}
 
 	validateOpts := oauth.IDTokenValidationOptions{}
