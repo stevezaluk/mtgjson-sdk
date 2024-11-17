@@ -1,6 +1,8 @@
 package user
 
 import (
+	"regexp"
+
 	"github.com/auth0/go-auth0/authentication/database"
 	"github.com/auth0/go-auth0/authentication/oauth"
 	"github.com/spf13/viper"
@@ -13,10 +15,29 @@ import (
 )
 
 /*
+Ensures that the passed string is a valid email address. If the email address is not valid then it returns false,
+true otherwise
+*/
+func validateEmail(email string) bool {
+	var result bool
+
+	reg, _ := regexp.Compile(`^[\w\.-]+@[a-zA-Z\d\.-]+\.[a-zA-Z]{2,}$`)
+	if reg.MatchString(email) {
+		result = true
+	}
+
+	return result
+}
+
+/*
 Fetch a user based on there username. Returns ErrNoUser if the user cannot be found
 */
 func GetUser(email string) (user.User, error) {
 	var result user.User
+
+	if !validateEmail(email) {
+		return result, errors.ErrInvalidEmail
+	}
 
 	var database = mtgContext.GetDatabase()
 
@@ -36,6 +57,10 @@ Returns ErrUserAlreadyExist if a user already exists under this username
 func NewUser(user user.User) error {
 	if user.Username == "" || user.Email == "" {
 		return errors.ErrUserMissingId
+	}
+
+	if !validateEmail(user.Email) {
+		return errors.ErrInvalidEmail
 	}
 
 	_, err := GetUser(user.Email)
@@ -62,6 +87,11 @@ func RegisterUser(username string, email string, password string) (user.User, er
 		return ret, errors.ErrInvalidPasswordLength
 	}
 
+	err := NewUser(ret)
+	if err != nil {
+		return ret, err
+	}
+
 	userData := database.SignupRequest{
 		Connection: "Username-Password-Authentication",
 		Username:   ret.Username,
@@ -71,14 +101,9 @@ func RegisterUser(username string, email string, password string) (user.User, er
 
 	authAPI := mtgContext.GetAuthAPI()
 
-	_, err := authAPI.Database.Signup(context.Background(), userData)
+	_, err = authAPI.Database.Signup(context.Background(), userData)
 	if err != nil {
 		return ret, errors.ErrFailedToRegisterUser
-	}
-
-	err = NewUser(ret)
-	if err != nil {
-		return ret, err
 	}
 
 	return ret, nil
