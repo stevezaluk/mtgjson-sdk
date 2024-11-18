@@ -213,3 +213,31 @@ func DeactivateUser(email string) error {
 
 	return nil
 }
+
+/*
+Send a reset password email to a specified user acocunt.
+*/
+func ResetUserPassword(email string) error {
+	_, err := GetUser(email)
+	if err != nil {
+		return err
+	}
+
+	var authAPI = mtgContext.GetAuthAPI()
+
+	resetPwdRequest := database.ChangePasswordRequest{
+		Email:      email,
+		Connection: "Username-Password-Authentication",
+	}
+
+	_, err = authAPI.Database.ChangePassword(
+		context.Background(),
+		resetPwdRequest,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
