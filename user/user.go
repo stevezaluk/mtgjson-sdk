@@ -59,7 +59,7 @@ Insert the contents of a User model in the MongoDB database. Returns ErrUserMiss
 Returns ErrUserAlreadyExist if a user already exists under this username
 */
 func NewUser(user user.User) error {
-	if user.Username == "" || user.Email == "" {
+	if user.Username == "" || user.Email == "" || user.Auth0Id == "" {
 		return errors.ErrUserMissingId
 	}
 
@@ -107,13 +107,12 @@ func RegisterUser(username string, email string, password string) (user.User, er
 	ret.Username = username
 	ret.Email = email
 
-	if len(password) < 12 {
-		return ret, errors.ErrInvalidPasswordLength
+	if !validateEmail(email) {
+		return ret, errors.ErrInvalidEmail
 	}
 
-	err := NewUser(ret)
-	if err != nil {
-		return ret, err
+	if len(password) < 12 {
+		return ret, errors.ErrInvalidPasswordLength
 	}
 
 	userData := database.SignupRequest{
@@ -125,9 +124,16 @@ func RegisterUser(username string, email string, password string) (user.User, er
 
 	authAPI := mtgContext.GetAuthAPI()
 
-	_, err = authAPI.Database.Signup(context.Background(), userData)
+	userResp, err := authAPI.Database.Signup(context.Background(), userData)
 	if err != nil {
 		return ret, errors.ErrFailedToRegisterUser
+	}
+
+	ret.Auth0Id = userResp.ID
+
+	err = NewUser(ret)
+	if err != nil {
+		return ret, err
 	}
 
 	return ret, nil
