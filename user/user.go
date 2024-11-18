@@ -79,6 +79,23 @@ func NewUser(user user.User) error {
 }
 
 /*
+List all users from the database, and return them in a slice. A limit can be provided to ensure that too many objects
+dont get returned
+*/
+func IndexUsers(limit int64) ([]user.User, error) {
+	var result []user.User
+
+	var database = mtgContext.GetDatabase()
+
+	results := database.Index("user", limit, &result)
+	if results == nil {
+		return result, errors.ErrNoUser
+	}
+
+	return result, nil
+}
+
+/*
 Removes the requested users account from the MongoDB database. Does not remove there account from Auth0. Returns ErrUserMissingId if email is empty string,
 returns ErrInvalidEmail if the email address passed is not valid, returns ErrUserDeleteFailed if the DeletedCount is less than 1, and returns nil otherwise
 */
