@@ -35,6 +35,10 @@ Fetch a user based on there username. Returns ErrNoUser if the user cannot be fo
 func GetUser(email string) (user.User, error) {
 	var result user.User
 
+	if email == "" {
+		return result, errors.ErrUserMissingId
+	}
+
 	if !validateEmail(email) {
 		return result, errors.ErrInvalidEmail
 	}
@@ -70,6 +74,26 @@ func NewUser(user user.User) error {
 
 	var database = mtgContext.GetDatabase()
 	database.Insert("user", &user)
+
+	return nil
+}
+
+/*
+Removes the requested users account from the MongoDB database. Does not remove there account from Auth0. Returns ErrUserMissingId if email is empty string,
+returns ErrInvalidEmail if the email address passed is not valid, returns ErrUserDeleteFailed if the DeletedCount is less than 1, and returns nil otherwise
+*/
+func DeleteUser(email string) error {
+	_, err := GetUser(email)
+	if err != nil {
+		return err
+	}
+
+	var database = mtgContext.GetDatabase()
+
+	results := database.Delete("user", bson.M{"email": email})
+	if results.DeletedCount > 1 {
+		return errors.ErrUserDeleteFailed
+	}
 
 	return nil
 }
