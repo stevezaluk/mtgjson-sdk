@@ -170,3 +170,29 @@ func LoginUser(email string, password string) (*oauth.TokenSet, error) {
 
 	return token, nil
 }
+
+/*
+Completely removes the requested user account, both from Auth0 and from MongoDB
+*/
+func DeactivateUser(email string) error {
+	user, err := GetUser(email)
+	if err != nil {
+		return err
+	}
+
+	err = DeleteUser(email)
+	if err != nil {
+		return err
+	}
+
+	var managementAPI = mtgContext.GetAuthManagementAPI()
+
+	userId := "auth0|" + user.Auth0Id
+
+	err = managementAPI.User.Delete(context.TODO(), userId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
