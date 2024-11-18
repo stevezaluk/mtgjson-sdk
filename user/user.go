@@ -35,6 +35,10 @@ Fetch a user based on there username. Returns ErrNoUser if the user cannot be fo
 func GetUser(email string) (user.User, error) {
 	var result user.User
 
+	if email == "" {
+		return result, errors.ErrUserMissingId
+	}
+
 	if !validateEmail(email) {
 		return result, errors.ErrInvalidEmail
 	}
@@ -55,7 +59,7 @@ Insert the contents of a User model in the MongoDB database. Returns ErrUserMiss
 Returns ErrUserAlreadyExist if a user already exists under this username
 */
 func NewUser(user user.User) error {
-	if user.Username == "" || user.Email == "" {
+	if user.Username == "" || user.Email == "" || user.Auth0Id == "" {
 		return errors.ErrUserMissingId
 	}
 
@@ -75,6 +79,43 @@ func NewUser(user user.User) error {
 }
 
 /*
+List all users from the database, and return them in a slice. A limit can be provided to ensure that too many objects
+dont get returned
+*/
+func IndexUsers(limit int64) ([]user.User, error) {
+	var result []user.User
+
+	var database = mtgContext.GetDatabase()
+
+	results := database.Index("user", limit, &result)
+	if results == nil {
+		return result, errors.ErrNoUser
+	}
+
+	return result, nil
+}
+
+/*
+Removes the requested users account from the MongoDB database. Does not remove there account from Auth0. Returns ErrUserMissingId if email is empty string,
+returns ErrInvalidEmail if the email address passed is not valid, returns ErrUserDeleteFailed if the DeletedCount is less than 1, and returns nil otherwise
+*/
+func DeleteUser(email string) error {
+	_, err := GetUser(email)
+	if err != nil {
+		return err
+	}
+
+	var database = mtgContext.GetDatabase()
+
+	results := database.Delete("user", bson.M{"email": email})
+	if results.DeletedCount > 1 {
+		return errors.ErrUserDeleteFailed
+	}
+
+	return nil
+}
+
+/*
 Register a new user with Auth0 and store there user model within the MongoDB database
 */
 func RegisterUser(username string, email string, password string) (user.User, error) {
@@ -83,13 +124,12 @@ func RegisterUser(username string, email string, password string) (user.User, er
 	ret.Username = username
 	ret.Email = email
 
-	if len(password) < 12 {
-		return ret, errors.ErrInvalidPasswordLength
+	if !validateEmail(email) {
+		return ret, errors.ErrInvalidEmail
 	}
 
-	err := NewUser(ret)
-	if err != nil {
-		return ret, err
+	if len(password) < 12 {
+		return ret, errors.ErrInvalidPasswordLength
 	}
 
 	userData := database.SignupRequest{
@@ -101,9 +141,16 @@ func RegisterUser(username string, email string, password string) (user.User, er
 
 	authAPI := mtgContext.GetAuthAPI()
 
-	_, err = authAPI.Database.Signup(context.Background(), userData)
+	userResp, err := authAPI.Database.Signup(context.Background(), userData)
 	if err != nil {
 		return ret, errors.ErrFailedToRegisterUser
+	}
+
+	ret.Auth0Id = userResp.ID
+
+	err = NewUser(ret)
+	if err != nil {
+		return ret, err
 	}
 
 	return ret, nil
@@ -139,4 +186,58 @@ func LoginUser(email string, password string) (*oauth.TokenSet, error) {
 	}
 
 	return token, nil
+}
+
+/*
+Completely removes the requested user account, both from Auth0 and from MongoDB
+*/
+func DeactivateUser(email string) error {
+	user, err := GetUser(email)
+	if err != nil {
+		return err
+	}
+
+	err = DeleteUser(email)
+	if err != nil {
+		return err
+	}
+
+	var managementAPI = mtgContext.GetAuthManagementAPI()
+
+	userId := "auth0|" + user.Auth0Id
+
+	err = managementAPI.User.Delete(context.TODO(), userId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+/*
+Send a reset password email to a specified user acocunt.
+*/
+func ResetUserPassword(email string) error {
+	_, err := GetUser(email)
+	if err != nil {
+		return err
+	}
+
+	var authAPI = mtgContext.GetAuthAPI()
+
+	resetPwdRequest := database.ChangePasswordRequest{
+		Email:      email,
+		Connection: "Username-Password-Authentication",
+	}
+
+	_, err = authAPI.Database.ChangePassword(
+		context.Background(),
+		resetPwdRequest,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/auth0/go-auth0/authentication"
+	"github.com/auth0/go-auth0/management"
 	"github.com/mitchellh/go-homedir"
 	"github.com/samber/slog-multi"
 	"github.com/spf13/viper"
@@ -112,7 +113,30 @@ func InitAuthAPI() {
 
 	ctx := context.WithValue(ServerContext, "auth", authAPI)
 	ServerContext = ctx
+}
 
+func InitAuthManagementAPI() {
+	domain := viper.GetString("auth0.domain")
+	clientId := viper.GetString("auth0.client_id")
+	clientSecret := viper.GetString("auth0.client_secret")
+
+	managementAPI, err := management.New(
+		domain,
+		management.WithClientCredentials(context.TODO(), clientId, clientSecret),
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	ctx := context.WithValue(ServerContext, "management", managementAPI)
+	ServerContext = ctx
+}
+
+func GetAuthManagementAPI() *management.Management {
+	managementAPI := ServerContext.Value("management")
+
+	return managementAPI.(*management.Management)
 }
 
 func GetAuthAPI() *authentication.Authentication {
