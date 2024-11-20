@@ -21,6 +21,11 @@ const (
 
 var ServerContext = context.Background()
 
+/*
+Initialize viper to parse our config file or use environmental varibales to provide
+the values we need. Additionally, a config path can be passed to the function to override
+the default value
+*/
 func InitConfig(configPath string) {
 	if configPath != "" {
 		viper.SetConfigFile(configPath)
@@ -42,6 +47,11 @@ func InitConfig(configPath string) {
 	}
 }
 
+/*
+Initialize our Slog Multihandler to write logs both to STDOUT and to our log directory. Logger
+is then stored within the ServerContext. Logs are written in text output when sent to STDOUT to
+make them more readable.
+*/
 func InitLog() {
 	timestamp := time.Now().Format(time.RFC3339Nano)
 
@@ -64,12 +74,19 @@ func InitLog() {
 	ServerContext = ctx
 }
 
+/*
+Fetch the Logger object that is stored in the ServerContext
+*/
 func GetLogger() *slog.Logger {
 	logger := ServerContext.Value("logger")
 
 	return logger.(*slog.Logger)
 }
 
+/*
+Initialize our MongoDB instance using values stored within viper, and store
+it within the ServerContext
+*/
 func InitDatabase() {
 	var database server.Database
 
@@ -84,17 +101,27 @@ func InitDatabase() {
 	ServerContext = ctx
 }
 
+/*
+Fetch the Database object that is stored in the ServerContext
+*/
 func GetDatabase() server.Database {
 	database := ServerContext.Value("database")
 
 	return database.(server.Database)
 }
 
+/*
+Disconnect the database object that is stored in the ServerContext
+*/
 func DestroyDatabase() {
 	var database = GetDatabase()
 	database.Disconnect()
 }
 
+/*
+Initialize the Authentication client used for logging in and registering users.
+Then store it within the ServerContext.
+*/
 func InitAuthAPI() {
 	domain := viper.GetString("auth0.domain")
 	clientId := viper.GetString("auth0.client_id")
@@ -115,6 +142,10 @@ func InitAuthAPI() {
 	ServerContext = ctx
 }
 
+/*
+Initialize the Authentication management client used for resetting user passwords and removing users
+from Auth0, then store it within the Server Context
+*/
 func InitAuthManagementAPI() {
 	domain := viper.GetString("auth0.domain")
 	clientId := viper.GetString("auth0.client_id")
@@ -133,12 +164,18 @@ func InitAuthManagementAPI() {
 	ServerContext = ctx
 }
 
+/*
+Fetch the Authentication management client object that is stored in the ServerContext
+*/
 func GetAuthManagementAPI() *management.Management {
 	managementAPI := ServerContext.Value("management")
 
 	return managementAPI.(*management.Management)
 }
 
+/*
+Fetch the Authentication client object that is stored in the ServerContext
+*/
 func GetAuthAPI() *authentication.Authentication {
 	authAPI := ServerContext.Value("auth")
 

@@ -8,6 +8,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
+/*
+Takes a single string representing a set code and returns a set model for the set.
+Returns ErrNoSet if the set does not exist, or cannot be located
+*/
 func GetSet(code string) (set.Set, error) {
 	var ret set.Set
 	var database = context.GetDatabase()
@@ -20,6 +24,10 @@ func GetSet(code string) (set.Set, error) {
 	return ret, nil
 }
 
+/*
+Returns all sets in the database unmarshalled as card models. The limit parameter
+will be passed directly to the database query to limit the number of models returned
+*/
 func IndexSets(limit int64) ([]set.Set, error) {
 	var ret []set.Set
 	var database = context.GetDatabase()
