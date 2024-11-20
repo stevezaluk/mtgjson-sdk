@@ -12,6 +12,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+/*
+ */
 type Database struct {
 	IPAddress string
 	Port      int
@@ -22,11 +24,17 @@ type Database struct {
 	Database *mongo.Database
 }
 
+/*
+Build a MongoDB connection URI using the values that are stored within our database object
+*/
 func (d *Database) BuildUri() string {
 	s := []string{"mongodb://", d.Username, ":", d.Password, "@", d.IPAddress, ":", strconv.Itoa(d.Port)}
 	return strings.Join(s, "")
 }
 
+/*
+Connect to the MongoDB instance defined in the Database object
+*/
 func (d *Database) Connect() {
 	opts := options.Client()
 	uri := d.BuildUri()
@@ -44,6 +52,9 @@ func (d *Database) Connect() {
 	d.Client = client
 }
 
+/*
+Gracefully disconnect from your active MongoDB connection
+*/
 func (d Database) Disconnect() {
 	d.Health() // this will throw an fatal error when
 
@@ -55,6 +66,9 @@ func (d Database) Disconnect() {
 	}
 }
 
+/*
+Ping the MongoDB database and panic if we don't get a response
+*/
 func (d Database) Health() {
 	err := d.Client.Ping(context.TODO(), nil)
 	if err != nil {
@@ -63,6 +77,10 @@ func (d Database) Health() {
 	}
 }
 
+/*
+Find a single document from the MongoDB instance and unmarshal it into the interface
+passed in the 'model' parameter
+*/
 func (d Database) Find(collection string, query bson.M, model interface{}) any {
 	coll := d.Database.Collection(collection)
 
@@ -77,6 +95,10 @@ func (d Database) Find(collection string, query bson.M, model interface{}) any {
 	return model
 }
 
+/*
+Replace a single document from the MongoDB instance and unmarshal it into the interface
+passed in the 'model' parameter
+*/
 func (d Database) Replace(collection string, query bson.M, model interface{}) any {
 	coll := d.Database.Collection(collection)
 
@@ -89,6 +111,9 @@ func (d Database) Replace(collection string, query bson.M, model interface{}) an
 	return result
 }
 
+/*
+Delete a single document from the MongoDB instance
+*/
 func (d Database) Delete(collection string, query bson.M) *mongo.DeleteResult {
 	coll := d.Database.Collection(collection)
 
@@ -101,6 +126,10 @@ func (d Database) Delete(collection string, query bson.M) *mongo.DeleteResult {
 	return result
 }
 
+/*
+Insert the interface represented in the 'model' parameter into the MongoDB
+instance
+*/
 func (d Database) Insert(collection string, model interface{}) any {
 	coll := d.Database.Collection(collection)
 
@@ -113,6 +142,10 @@ func (d Database) Insert(collection string, model interface{}) any {
 	return result
 }
 
+/*
+Return all documents in a collection and unmarshal them into the interface passed
+in the 'model' paramter
+*/
 func (d Database) Index(collection string, limit int64, model interface{}) interface{} {
 	opts := options.Find().SetLimit(limit)
 	coll := d.Database.Collection(collection)
