@@ -95,7 +95,7 @@ func GetCard(uuid string) (*card.CardSet, error) {
 Insert a new card in the form of a model into the MongoDB database. The card model must have a
 valid name and MTGJSONv4 ID, additionally, the card cannot already exist under the same ID
 */
-func NewCard(card card.CardSet) error {
+func NewCard(card *card.CardSet) error {
 	cardId := card.Identifiers.MtgjsonV4Id
 	if card.Name == "" || cardId == "" {
 		return errors.ErrCardMissingId
@@ -120,7 +120,7 @@ if the deleted count does not equal 1
 func DeleteCard(uuid string) error {
 	var database = context.GetDatabase()
 
-	query := bson.M{"identifiers.mtgjsonv4id": uuid}
+	query := bson.M{"identifiers.mtgjsonV4Id": uuid}
 	result := database.Delete("card", query)
 	if result == nil {
 		return errors.ErrNoCard
