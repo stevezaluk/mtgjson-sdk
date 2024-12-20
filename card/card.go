@@ -5,7 +5,7 @@ import (
 	"regexp"
 
 	"github.com/stevezaluk/mtgjson-models/card"
-	"github.com/stevezaluk/mtgjson-models/errors"
+	sdkErrors "github.com/stevezaluk/mtgjson-models/errors"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -37,10 +37,10 @@ func ValidateCards(uuids []string) (bool, []string, []string) {
 
 	for _, uuid := range uuids {
 		_, err := GetCard(uuid)
-		if err == errors.ErrNoCard {
+		if err == sdkErrors.ErrNoCard {
 			result = false
 			noExistCards = append(noExistCards, uuid)
-		} else if err == errors.ErrInvalidUUID {
+		} else if err == sdkErrors.ErrInvalidUUID {
 			result = false
 			invalidCards = append(invalidCards, uuid)
 		}
@@ -77,7 +77,7 @@ func GetCard(uuid string) (*card.CardSet, error) {
 	var result card.CardSet
 
 	if !ValidateUUID(uuid) {
-		return &result, errors.ErrInvalidUUID
+		return &result, sdkErrors.ErrInvalidUUID
 	}
 
 	var database = context.GetDatabase()
@@ -85,7 +85,7 @@ func GetCard(uuid string) (*card.CardSet, error) {
 	query := bson.M{"identifiers.mtgjsonV4Id": uuid}
 	results := database.Find("card", query, &result)
 	if results == nil {
-		return &result, errors.ErrNoCard
+		return &result, sdkErrors.ErrNoCard
 	}
 
 	return &result, nil
@@ -98,12 +98,12 @@ valid name and MTGJSONv4 ID, additionally, the card cannot already exist under t
 func NewCard(card *card.CardSet) error {
 	cardId := card.Identifiers.MtgjsonV4Id
 	if card.Name == "" || cardId == "" {
-		return errors.ErrCardMissingId
+		return sdkErrors.ErrCardMissingId
 	}
 
 	_, err := GetCard(cardId)
-	if err != errors.ErrNoCard {
-		return errors.ErrCardAlreadyExist
+	if err != sdkErrors.ErrNoCard {
+		return sdkErrors.ErrCardAlreadyExist
 	}
 
 	var database = context.GetDatabase()
@@ -123,11 +123,11 @@ func DeleteCard(uuid string) error {
 	query := bson.M{"identifiers.mtgjsonV4Id": uuid}
 	result := database.Delete("card", query)
 	if result == nil {
-		return errors.ErrNoCard
+		return sdkErrors.ErrNoCard
 	}
 
 	if result.DeletedCount != 1 {
-		return errors.ErrCardDeleteFailed
+		return sdkErrors.ErrCardDeleteFailed
 	}
 
 	return nil
@@ -144,7 +144,7 @@ func IndexCards(limit int64) ([]*card.CardSet, error) {
 
 	results := database.Index("card", limit, &result)
 	if results == nil {
-		return result, errors.ErrNoCards
+		return result, sdkErrors.ErrNoCards
 	}
 
 	return result, nil
