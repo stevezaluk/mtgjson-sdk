@@ -53,17 +53,17 @@ func ValidateCards(uuids []string) (bool, []string, []string) {
 Takes a list of strings representing MTGJSONv4 UUID's and returns a list of card models
 representing them
 */
-func GetCards(cards []string) []card.Card {
-	var ret []card.Card
+func GetCards(cards []string) []card.CardSet {
+	var ret []card.CardSet
 	for i := 0; i < len(cards); i++ {
 		uuid := cards[i]
 
-		card, err := GetCard(uuid)
+		_, err := GetCard(uuid)
 		if err != nil {
 			continue
 		}
 
-		ret = append(ret, card)
+		//ret = append(ret, card)
 	}
 
 	return ret
@@ -73,30 +73,30 @@ func GetCards(cards []string) []card.Card {
 Takes a single string representing an MTGJSONv4 UUID and return a card model
 for it
 */
-func GetCard(uuid string) (card.Card, error) {
-	var result card.Card
+func GetCard(uuid string) (*card.CardSet, error) {
+	var result card.CardSet
 
 	if !ValidateUUID(uuid) {
-		return result, errors.ErrInvalidUUID
+		return &result, errors.ErrInvalidUUID
 	}
 
 	var database = context.GetDatabase()
 
-	query := bson.M{"identifiers.mtgjsonv4id": uuid}
+	query := bson.M{"identifiers.mtgjsonV4Id": uuid}
 	results := database.Find("card", query, &result)
 	if results == nil {
-		return result, errors.ErrNoCard
+		return &result, errors.ErrNoCard
 	}
 
-	return result, nil
+	return &result, nil
 }
 
 /*
 Insert a new card in the form of a model into the MongoDB database. The card model must have a
 valid name and MTGJSONv4 ID, additionally, the card cannot already exist under the same ID
 */
-func NewCard(card card.Card) error {
-	cardId := card.Identifiers.MTGJsonV4Id
+func NewCard(card card.CardSet) error {
+	cardId := card.Identifiers.MtgjsonV4Id
 	if card.Name == "" || cardId == "" {
 		return errors.ErrCardMissingId
 	}
@@ -137,8 +137,8 @@ func DeleteCard(uuid string) error {
 Returns all cards in the database unmarshalled as card models. The limit parameter
 will be passed directly to the database query to limit the number of models returned
 */
-func IndexCards(limit int64) ([]card.Card, error) {
-	var result []card.Card
+func IndexCards(limit int64) ([]card.CardSet, error) {
+	var result []card.CardSet
 
 	var database = context.GetDatabase()
 
