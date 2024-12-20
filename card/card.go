@@ -137,8 +137,8 @@ func DeleteCard(uuid string) error {
 Returns all cards in the database unmarshalled as card models. The limit parameter
 will be passed directly to the database query to limit the number of models returned
 */
-func IndexCards(limit int64) ([]card.CardSet, error) {
-	var result []card.CardSet
+func IndexCards(limit int64) ([]*card.CardSet, error) {
+	var result []*card.CardSet
 
 	var database = context.GetDatabase()
 
