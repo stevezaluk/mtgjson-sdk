@@ -51,19 +51,19 @@ func ValidateCards(uuids []string) (bool, []string, []string) {
 
 /*
 Takes a list of strings representing MTGJSONv4 UUID's and returns a list of card models
-representing them
+representing them. Change this to process all cards in a single database call
 */
-func GetCards(cards []string) []card.CardSet {
-	var ret []card.CardSet
+func GetCards(cards []string) []*card.CardSet {
+	var ret []*card.CardSet
 	for i := 0; i < len(cards); i++ {
 		uuid := cards[i]
 
-		_, err := GetCard(uuid)
+		cardModel, err := GetCard(uuid)
 		if err != nil {
 			continue
 		}
 
-		//ret = append(ret, card)
+		ret = append(ret, cardModel)
 	}
 
 	return ret
