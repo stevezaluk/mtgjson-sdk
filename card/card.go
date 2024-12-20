@@ -1,6 +1,7 @@
 package card
 
 import (
+	"errors"
 	"github.com/stevezaluk/mtgjson-sdk/context"
 	"regexp"
 
@@ -37,10 +38,10 @@ func ValidateCards(uuids []string) (bool, []string, []string) {
 
 	for _, uuid := range uuids {
 		_, err := GetCard(uuid)
-		if err == sdkErrors.ErrNoCard {
+		if errors.Is(err, sdkErrors.ErrNoCard) {
 			result = false
 			noExistCards = append(noExistCards, uuid)
-		} else if err == sdkErrors.ErrInvalidUUID {
+		} else if errors.Is(err, sdkErrors.ErrInvalidUUID) {
 			result = false
 			invalidCards = append(invalidCards, uuid)
 		}
@@ -102,7 +103,7 @@ func NewCard(card *card.CardSet) error {
 	}
 
 	_, err := GetCard(cardId)
-	if err != sdkErrors.ErrNoCard {
+	if !errors.Is(err, sdkErrors.ErrNoCard) {
 		return sdkErrors.ErrCardAlreadyExist
 	}
 
