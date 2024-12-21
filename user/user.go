@@ -34,8 +34,8 @@ func validateEmail(email string) bool {
 /*
 Fetch a user based on there username. Returns ErrNoUser if the user cannot be found
 */
-func GetUser(email string) (user.User, error) {
-	var result user.User
+func GetUser(email string) (*user.User, error) {
+	var result *user.User
 
 	if email == "" {
 		return result, errors.ErrUserMissingId
@@ -45,10 +45,10 @@ func GetUser(email string) (user.User, error) {
 		return result, errors.ErrInvalidEmail
 	}
 
-	var database = mtgContext.GetDatabase()
+	var mongoDatabase = mtgContext.GetDatabase()
 
 	query := bson.M{"email": email}
-	results := database.Find("user", query, &result)
+	results := mongoDatabase.Find("user", query, &result)
 	if results == nil {
 		return result, errors.ErrNoUser
 	}
