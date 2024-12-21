@@ -7,7 +7,7 @@ import (
 	"github.com/auth0/go-auth0/authentication/database"
 	"github.com/auth0/go-auth0/authentication/oauth"
 	"github.com/spf13/viper"
-	"github.com/stevezaluk/mtgjson-models/errors"
+	sdkErrors "github.com/stevezaluk/mtgjson-models/errors"
 	userModel "github.com/stevezaluk/mtgjson-models/user"
 	mtgContext "github.com/stevezaluk/mtgjson-sdk/context"
 	"go.mongodb.org/mongo-driver/bson"
@@ -39,11 +39,11 @@ func GetUser(email string) (*userModel.User, error) {
 	var result *userModel.User
 
 	if email == "" {
-		return result, errors.ErrUserMissingId
+		return result, sdkErrors.ErrUserMissingId
 	}
 
 	if !validateEmail(email) {
-		return result, errors.ErrInvalidEmail
+		return result, sdkErrors.ErrInvalidEmail
 	}
 
 	var mongoDatabase = mtgContext.GetDatabase()
@@ -51,7 +51,7 @@ func GetUser(email string) (*userModel.User, error) {
 	query := bson.M{"email": email}
 	results := mongoDatabase.Find("user", query, &result)
 	if results == nil {
-		return result, errors.ErrNoUser
+		return result, sdkErrors.ErrNoUser
 	}
 
 	return result, nil
@@ -63,16 +63,16 @@ Returns ErrUserAlreadyExist if a user already exists under this username
 */
 func NewUser(user *userModel.User) error {
 	if user.Username == "" || user.Email == "" || user.Auth0Id == "" {
-		return errors.ErrUserMissingId
+		return sdkErrors.ErrUserMissingId
 	}
 
 	if !validateEmail(user.Email) {
-		return errors.ErrInvalidEmail
+		return sdkErrors.ErrInvalidEmail
 	}
 
 	_, err := GetUser(user.Email)
-	if err != errors.ErrNoUser {
-		return errors.ErrUserAlreadyExist
+	if err != sdkErrors.ErrNoUser {
+		return sdkErrors.ErrUserAlreadyExist
 	}
 
 	var mongoDatabase = mtgContext.GetDatabase()
@@ -92,7 +92,7 @@ func IndexUsers(limit int64) ([]*user.User, error) {
 
 	results := mongoDatabase.Index("user", limit, &result)
 	if results == nil {
-		return result, errors.ErrNoUser
+		return result, sdkErrors.ErrNoUser
 	}
 
 	return result, nil
@@ -112,7 +112,7 @@ func DeleteUser(email string) error {
 
 	results := mongoDatabase.Delete("user", bson.M{"email": email})
 	if results.DeletedCount > 1 {
-		return errors.ErrUserDeleteFailed
+		return sdkErrors.ErrUserDeleteFailed
 	}
 
 	return nil
@@ -129,11 +129,11 @@ func RegisterUser(username string, email string, password string) (*userModel.Us
 	}
 
 	if !validateEmail(email) {
-		return ret, errors.ErrInvalidEmail
+		return ret, sdkErrors.ErrInvalidEmail
 	}
 
 	if len(password) < 12 {
-		return ret, errors.ErrInvalidPasswordLength
+		return ret, sdkErrors.ErrInvalidPasswordLength
 	}
 
 	userData := database.SignupRequest{
@@ -147,7 +147,7 @@ func RegisterUser(username string, email string, password string) (*userModel.Us
 
 	userResp, err := authAPI.Database.Signup(context.Background(), userData)
 	if err != nil {
-		return ret, errors.ErrFailedToRegisterUser
+		return ret, sdkErrors.ErrFailedToRegisterUser
 	}
 
 	ret.Auth0Id = userResp.ID
