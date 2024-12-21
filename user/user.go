@@ -60,7 +60,7 @@ func GetUser(email string) (*user.User, error) {
 Insert the contents of a User model in the MongoDB database. Returns ErrUserMissingId if the Username, or Emai is not present
 Returns ErrUserAlreadyExist if a user already exists under this username
 */
-func NewUser(user user.User) error {
+func NewUser(user *user.User) error {
 	if user.Username == "" || user.Email == "" || user.Auth0Id == "" {
 		return errors.ErrUserMissingId
 	}
@@ -74,8 +74,8 @@ func NewUser(user user.User) error {
 		return errors.ErrUserAlreadyExist
 	}
 
-	var database = mtgContext.GetDatabase()
-	database.Insert("user", &user)
+	var mongoDatabase = mtgContext.GetDatabase()
+	mongoDatabase.Insert("user", &user)
 
 	return nil
 }
@@ -150,7 +150,7 @@ func RegisterUser(username string, email string, password string) (user.User, er
 
 	ret.Auth0Id = userResp.ID
 
-	err = NewUser(ret)
+	err = NewUser(&ret)
 	if err != nil {
 		return ret, err
 	}
