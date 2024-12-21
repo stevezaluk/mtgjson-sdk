@@ -9,7 +9,7 @@ import (
 )
 
 /*
-Replace the entire deck in the database with the deck model
+ReplaceDeck Replace the entire deck in the database with the deck model
 passed in the parameter. Returns ErrDeckUpdateFailed if the deck
 cannot be located
 */
@@ -25,7 +25,7 @@ func ReplaceDeck(deck *deckModel.Deck) error {
 }
 
 /*
-Remove a deck from the MongoDB database using the code passed in the
+DeleteDeck Remove a deck from the MongoDB database using the code passed in the
 parameter. Returns ErrNoDeck if the deck does not exist. Returns
 ErrDeckDeleteFailed if the deleted count does not equal 1
 */
@@ -46,7 +46,7 @@ func DeleteDeck(code string) any {
 }
 
 /*
-Fetch a deck from the MongoDB database using the code passed in the parameter. Returns
+GetDeck Fetch a deck from the MongoDB database using the code passed in the parameter. Returns
 ErrNoDeck if the deck does not exist or cannot be located
 */
 func GetDeck(code string) (*deckModel.Deck, error) {
@@ -64,7 +64,7 @@ func GetDeck(code string) (*deckModel.Deck, error) {
 }
 
 /*
-Returns all decks in the database unmarshalled as deck models. The limit parameter
+IndexDecks Returns all decks in the database unmarshalled as deck models. The limit parameter
 will be passed directly to the database query to limit the number of models returned
 */
 func IndexDecks(limit int64) ([]*deckModel.Deck, error) {
@@ -81,7 +81,7 @@ func IndexDecks(limit int64) ([]*deckModel.Deck, error) {
 }
 
 /*
-Insert a new deck in the form of a model into the MongoDB database. The deck model must have a
+NewDeck Insert a new deck in the form of a model into the MongoDB database. The deck model must have a
 valid name and deck code, additionally the deck cannot already exist under the same deck code
 */
 func NewDeck(deck *deckModel.Deck) error {
