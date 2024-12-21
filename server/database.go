@@ -13,7 +13,9 @@ import (
 )
 
 /*
- */
+Database An abstraction of an active mongodb database connection. The same connection is re-used across
+all SDK operations to ensure that we don't exceed the connection pool limit
+*/
 type Database struct {
 	IPAddress string
 	Port      int
@@ -25,7 +27,7 @@ type Database struct {
 }
 
 /*
-Build a MongoDB connection URI using the values that are stored within our database object
+BuildUri Build a MongoDB connection URI using the values that are stored within our database object
 */
 func (d *Database) BuildUri() string {
 	s := []string{"mongodb://", d.Username, ":", d.Password, "@", d.IPAddress, ":", strconv.Itoa(d.Port)}
@@ -53,10 +55,10 @@ func (d *Database) Connect() {
 }
 
 /*
-Gracefully disconnect from your active MongoDB connection
+Disconnect Gracefully disconnect from your active MongoDB connection
 */
 func (d Database) Disconnect() {
-	d.Health() // this will throw an fatal error when
+	d.Health() // this will throw a fatal error when
 
 	slog.Info("Disconnecting from MongoDB")
 	err := d.Client.Disconnect(context.Background())
@@ -67,12 +69,12 @@ func (d Database) Disconnect() {
 }
 
 /*
-Ping the MongoDB database and panic if we don't get a response
+Health Ping the MongoDB database and panic if we don't get a response
 */
 func (d Database) Health() {
 	err := d.Client.Ping(context.TODO(), nil)
 	if err != nil {
-		slog.Error("Failed to ping MognoDB for health", "err", err.Error())
+		slog.Error("Failed to ping MongoDB for health", "err", err.Error())
 		panic(1)
 	}
 }
@@ -143,8 +145,8 @@ func (d Database) Insert(collection string, model interface{}) any {
 }
 
 /*
-Return all documents in a collection and unmarshal them into the interface passed
-in the 'model' paramter
+Index Return all documents in a collection and unmarshal them into the interface passed
+in the 'model' parameter
 */
 func (d Database) Index(collection string, limit int64, model interface{}) interface{} {
 	opts := options.Find().SetLimit(limit)
