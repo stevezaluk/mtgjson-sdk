@@ -57,7 +57,7 @@ func (d *Database) Connect() {
 /*
 Disconnect Gracefully disconnect from your active MongoDB connection
 */
-func (d Database) Disconnect() {
+func (d *Database) Disconnect() {
 	d.Health() // this will throw a fatal error when
 
 	slog.Info("Disconnecting from MongoDB")
@@ -71,7 +71,7 @@ func (d Database) Disconnect() {
 /*
 Health Ping the MongoDB database and panic if we don't get a response
 */
-func (d Database) Health() {
+func (d *Database) Health() {
 	err := d.Client.Ping(context.TODO(), nil)
 	if err != nil {
 		slog.Error("Failed to ping MongoDB for health", "err", err.Error())
@@ -83,7 +83,7 @@ func (d Database) Health() {
 Find a single document from the MongoDB instance and unmarshal it into the interface
 passed in the 'model' parameter
 */
-func (d Database) Find(collection string, query bson.M, model interface{}) any {
+func (d *Database) Find(collection string, query bson.M, model interface{}) any {
 	coll := d.Database.Collection(collection)
 
 	slog.Debug("Find Query", "collection", collection, "query", query)
@@ -101,7 +101,7 @@ func (d Database) Find(collection string, query bson.M, model interface{}) any {
 Replace a single document from the MongoDB instance and unmarshal it into the interface
 passed in the 'model' parameter
 */
-func (d Database) Replace(collection string, query bson.M, model interface{}) any {
+func (d *Database) Replace(collection string, query bson.M, model interface{}) any {
 	coll := d.Database.Collection(collection)
 
 	slog.Debug("ReplaceOne Query", "collection", collection, "query", query)
@@ -116,7 +116,7 @@ func (d Database) Replace(collection string, query bson.M, model interface{}) an
 /*
 Delete a single document from the MongoDB instance
 */
-func (d Database) Delete(collection string, query bson.M) *mongo.DeleteResult {
+func (d *Database) Delete(collection string, query bson.M) *mongo.DeleteResult {
 	coll := d.Database.Collection(collection)
 
 	slog.Debug("DeleteOne Query", "collection", collection, "query", query)
@@ -132,7 +132,7 @@ func (d Database) Delete(collection string, query bson.M) *mongo.DeleteResult {
 Insert the interface represented in the 'model' parameter into the MongoDB
 instance
 */
-func (d Database) Insert(collection string, model interface{}) any {
+func (d *Database) Insert(collection string, model interface{}) any {
 	coll := d.Database.Collection(collection)
 
 	slog.Debug("Insert Query", "collection", collection)
@@ -148,7 +148,7 @@ func (d Database) Insert(collection string, model interface{}) any {
 Index Return all documents in a collection and unmarshal them into the interface passed
 in the 'model' parameter
 */
-func (d Database) Index(collection string, limit int64, model interface{}) interface{} {
+func (d *Database) Index(collection string, limit int64, model interface{}) interface{} {
 	opts := options.Find().SetLimit(limit)
 	coll := d.Database.Collection(collection)
 

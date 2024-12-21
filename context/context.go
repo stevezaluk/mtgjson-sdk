@@ -88,12 +88,12 @@ Initialize our MongoDB instance using values stored within viper, and store
 it within the ServerContext
 */
 func InitDatabase() {
-	var database server.Database
-
-	database.IPAddress = viper.GetString("mongo.ip")
-	database.Port = viper.GetInt("mongo.port")
-	database.Username = viper.GetString("mongo.user")
-	database.Password = viper.GetString("mongo.pass")
+	database := &server.Database{
+		IPAddress: viper.GetString("mongo.ip"),
+		Port:      viper.GetInt("mongo.port"),
+		Username:  viper.GetString("mongo.user"),
+		Password:  viper.GetString("mongo.pass"),
+	}
 
 	database.Connect() // externalize errors to here and check
 
@@ -104,10 +104,10 @@ func InitDatabase() {
 /*
 Fetch the Database object that is stored in the ServerContext
 */
-func GetDatabase() server.Database {
+func GetDatabase() *server.Database {
 	database := ServerContext.Value("database")
 
-	return database.(server.Database)
+	return database.(*server.Database)
 }
 
 /*
