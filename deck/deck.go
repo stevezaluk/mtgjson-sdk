@@ -1,6 +1,7 @@
 package deck
 
 import (
+	"errors"
 	"github.com/stevezaluk/mtgjson-sdk/context"
 
 	deckModel "github.com/stevezaluk/mtgjson-models/deck"
@@ -94,7 +95,7 @@ func NewDeck(deck *deckModel.Deck) error {
 	}
 
 	_, err := GetDeck(deck.Code)
-	if err != sdkErrors.ErrNoDeck {
+	if !errors.Is(err, sdkErrors.ErrNoDeck) {
 		return sdkErrors.ErrDeckAlreadyExists
 	}
 
