@@ -3,7 +3,7 @@ package deck
 import (
 	"github.com/stevezaluk/mtgjson-sdk/context"
 
-	deck_model "github.com/stevezaluk/mtgjson-models/deck"
+	deckModel "github.com/stevezaluk/mtgjson-models/deck"
 	"github.com/stevezaluk/mtgjson-models/errors"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -13,7 +13,7 @@ Replace the entire deck in the database with the deck model
 passed in the parameter. Returns ErrDeckUpdateFailed if the deck
 cannot be located
 */
-func ReplaceDeck(deck *deck_model.Deck) error {
+func ReplaceDeck(deck *deckModel.Deck) error {
 	var database = context.GetDatabase()
 
 	results := database.Replace("deck", bson.M{"code": deck.Code}, &deck)
@@ -49,8 +49,8 @@ func DeleteDeck(code string) any {
 Fetch a deck from the MongoDB database using the code passed in the parameter. Returns
 ErrNoDeck if the deck does not exist or cannot be located
 */
-func GetDeck(code string) (*deck_model.Deck, error) {
-	var result *deck_model.Deck
+func GetDeck(code string) (*deckModel.Deck, error) {
+	var result *deckModel.Deck
 
 	var database = context.GetDatabase()
 
@@ -67,8 +67,8 @@ func GetDeck(code string) (*deck_model.Deck, error) {
 Returns all decks in the database unmarshalled as deck models. The limit parameter
 will be passed directly to the database query to limit the number of models returned
 */
-func IndexDecks(limit int64) ([]*deck_model.Deck, error) {
-	var result []*deck_model.Deck
+func IndexDecks(limit int64) ([]*deckModel.Deck, error) {
+	var result []*deckModel.Deck
 
 	var database = context.GetDatabase()
 
@@ -84,7 +84,7 @@ func IndexDecks(limit int64) ([]*deck_model.Deck, error) {
 Insert a new deck in the form of a model into the MongoDB database. The deck model must have a
 valid name and deck code, additionally the deck cannot already exist under the same deck code
 */
-func NewDeck(deck *deck_model.Deck) error {
+func NewDeck(deck *deckModel.Deck) error {
 	if deck.Name == "" || deck.Code == "" {
 		return errors.ErrDeckMissingId
 	}
