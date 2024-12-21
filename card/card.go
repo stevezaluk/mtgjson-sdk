@@ -1,17 +1,18 @@
 package card
 
 import (
+	"errors"
 	"github.com/stevezaluk/mtgjson-sdk/context"
 	"regexp"
 
 	"github.com/stevezaluk/mtgjson-models/card"
-	"github.com/stevezaluk/mtgjson-models/errors"
+	sdkErrors "github.com/stevezaluk/mtgjson-models/errors"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
 /*
-Validates that the string passed in the argument is a Version 4 UUID. Returns true
-if validation passes, false other wise
+ValidateUUID Validates that the string passed in the argument is a Version 4 UUID. Returns true
+if validation passes, false otherwise
 */
 func ValidateUUID(uuid string) bool {
 	var ret = false
@@ -26,7 +27,7 @@ func ValidateUUID(uuid string) bool {
 }
 
 /*
-Takes a list of strings representing MTGJSONv4 UUID's and ensures that they are both
+ValidateCards Takes a list of strings representing MTGJSONv4 UUID's and ensures that they are both
 valid and exist. Returns 3 variables a boolean and two lists of strings. The boolean
 can be used as a general determination if the validation succeeded
 */
@@ -37,10 +38,10 @@ func ValidateCards(uuids []string) (bool, []string, []string) {
 
 	for _, uuid := range uuids {
 		_, err := GetCard(uuid)
-		if err == errors.ErrNoCard {
+		if errors.Is(err, sdkErrors.ErrNoCard) {
 			result = false
 			noExistCards = append(noExistCards, uuid)
-		} else if err == errors.ErrInvalidUUID {
+		} else if errors.Is(err, sdkErrors.ErrInvalidUUID) {
 			result = false
 			invalidCards = append(invalidCards, uuid)
 		}
@@ -50,60 +51,60 @@ func ValidateCards(uuids []string) (bool, []string, []string) {
 }
 
 /*
-Takes a list of strings representing MTGJSONv4 UUID's and returns a list of card models
-representing them
+GetCards Takes a list of strings representing MTGJSONv4 UUID's and returns a list of card models
+representing them. Change this to process all cards in a single database call
 */
-func GetCards(cards []string) []card.Card {
-	var ret []card.Card
+func GetCards(cards []string) []*card.CardSet {
+	var ret []*card.CardSet
 	for i := 0; i < len(cards); i++ {
 		uuid := cards[i]
 
-		card, err := GetCard(uuid)
+		cardModel, err := GetCard(uuid)
 		if err != nil {
 			continue
 		}
 
-		ret = append(ret, card)
+		ret = append(ret, cardModel)
 	}
 
 	return ret
 }
 
 /*
-Takes a single string representing an MTGJSONv4 UUID and return a card model
+GetCard Takes a single string representing an MTGJSONv4 UUID and return a card model
 for it
 */
-func GetCard(uuid string) (card.Card, error) {
-	var result card.Card
+func GetCard(uuid string) (*card.CardSet, error) {
+	var result card.CardSet
 
 	if !ValidateUUID(uuid) {
-		return result, errors.ErrInvalidUUID
+		return &result, sdkErrors.ErrInvalidUUID
 	}
 
 	var database = context.GetDatabase()
 
-	query := bson.M{"identifiers.mtgjsonv4id": uuid}
+	query := bson.M{"identifiers.mtgjsonV4Id": uuid}
 	results := database.Find("card", query, &result)
 	if results == nil {
-		return result, errors.ErrNoCard
+		return &result, sdkErrors.ErrNoCard
 	}
 
-	return result, nil
+	return &result, nil
 }
 
 /*
-Insert a new card in the form of a model into the MongoDB database. The card model must have a
+NewCard Insert a new card in the form of a model into the MongoDB database. The card model must have a
 valid name and MTGJSONv4 ID, additionally, the card cannot already exist under the same ID
 */
-func NewCard(card card.Card) error {
-	cardId := card.Identifiers.MTGJsonV4Id
+func NewCard(card *card.CardSet) error {
+	cardId := card.Identifiers.MtgjsonV4Id
 	if card.Name == "" || cardId == "" {
-		return errors.ErrCardMissingId
+		return sdkErrors.ErrCardMissingId
 	}
 
 	_, err := GetCard(cardId)
-	if err != errors.ErrNoCard {
-		return errors.ErrCardAlreadyExist
+	if !errors.Is(err, sdkErrors.ErrNoCard) {
+		return sdkErrors.ErrCardAlreadyExist
 	}
 
 	var database = context.GetDatabase()
@@ -113,38 +114,38 @@ func NewCard(card card.Card) error {
 }
 
 /*
-Remove a card from the MongoDB database. The UUID passed in the parameter must be a valid MTGJSONv4 ID.
+DeleteCard Remove a card from the MongoDB database. The UUID passed in the parameter must be a valid MTGJSONv4 ID.
 ErrNoCard will be returned if no card exists under the passed UUID, and ErrCardDeleteFailed will be returned
 if the deleted count does not equal 1
 */
 func DeleteCard(uuid string) error {
 	var database = context.GetDatabase()
 
-	query := bson.M{"identifiers.mtgjsonv4id": uuid}
+	query := bson.M{"identifiers.mtgjsonV4Id": uuid}
 	result := database.Delete("card", query)
 	if result == nil {
-		return errors.ErrNoCard
+		return sdkErrors.ErrNoCard
 	}
 
 	if result.DeletedCount != 1 {
-		return errors.ErrCardDeleteFailed
+		return sdkErrors.ErrCardDeleteFailed
 	}
 
 	return nil
 }
 
 /*
-Returns all cards in the database unmarshalled as card models. The limit parameter
+IndexCards Returns all cards in the database unmarshalled as card models. The limit parameter
 will be passed directly to the database query to limit the number of models returned
 */
-func IndexCards(limit int64) ([]card.Card, error) {
-	var result []card.Card
+func IndexCards(limit int64) ([]*card.CardSet, error) {
+	var result []*card.CardSet
 
 	var database = context.GetDatabase()
 
 	results := database.Index("card", limit, &result)
 	if results == nil {
-		return result, errors.ErrNoCards
+		return result, sdkErrors.ErrNoCards
 	}
 
 	return result, nil

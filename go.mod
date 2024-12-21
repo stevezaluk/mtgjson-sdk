@@ -7,7 +7,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/samber/slog-multi v1.2.4
 	github.com/spf13/viper v1.19.0
-	github.com/stevezaluk/mtgjson-models v1.1.9
+	github.com/stevezaluk/mtgjson-models v1.2.6
 	go.mongodb.org/mongo-driver v1.17.1
 )
 
@@ -52,6 +52,7 @@ require (
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.23.0 // indirect
 	golang.org/x/text v0.18.0 // indirect
+	google.golang.org/protobuf v1.35.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

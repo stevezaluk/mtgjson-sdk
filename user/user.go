@@ -1,13 +1,15 @@
 package user
 
 import (
+	"errors"
+	"os/user"
 	"regexp"
 
 	"github.com/auth0/go-auth0/authentication/database"
 	"github.com/auth0/go-auth0/authentication/oauth"
 	"github.com/spf13/viper"
-	"github.com/stevezaluk/mtgjson-models/errors"
-	"github.com/stevezaluk/mtgjson-models/user"
+	sdkErrors "github.com/stevezaluk/mtgjson-models/errors"
+	userModel "github.com/stevezaluk/mtgjson-models/user"
 	mtgContext "github.com/stevezaluk/mtgjson-sdk/context"
 	"go.mongodb.org/mongo-driver/bson"
 
@@ -32,73 +34,73 @@ func validateEmail(email string) bool {
 }
 
 /*
-Fetch a user based on there username. Returns ErrNoUser if the user cannot be found
+GetUser Fetch a user based on their username. Returns ErrNoUser if the user cannot be found
 */
-func GetUser(email string) (user.User, error) {
-	var result user.User
+func GetUser(email string) (*userModel.User, error) {
+	var result *userModel.User
 
 	if email == "" {
-		return result, errors.ErrUserMissingId
+		return result, sdkErrors.ErrUserMissingId
 	}
 
 	if !validateEmail(email) {
-		return result, errors.ErrInvalidEmail
+		return result, sdkErrors.ErrInvalidEmail
 	}
 
-	var database = mtgContext.GetDatabase()
+	var mongoDatabase = mtgContext.GetDatabase()
 
 	query := bson.M{"email": email}
-	results := database.Find("user", query, &result)
+	results := mongoDatabase.Find("user", query, &result)
 	if results == nil {
-		return result, errors.ErrNoUser
+		return result, sdkErrors.ErrNoUser
 	}
 
 	return result, nil
 }
 
 /*
-Insert the contents of a User model in the MongoDB database. Returns ErrUserMissingId if the Username, or Emai is not present
+NewUser Insert the contents of a User model in the MongoDB database. Returns ErrUserMissingId if the Username, or Email is not present
 Returns ErrUserAlreadyExist if a user already exists under this username
 */
-func NewUser(user user.User) error {
+func NewUser(user *userModel.User) error {
 	if user.Username == "" || user.Email == "" || user.Auth0Id == "" {
-		return errors.ErrUserMissingId
+		return sdkErrors.ErrUserMissingId
 	}
 
 	if !validateEmail(user.Email) {
-		return errors.ErrInvalidEmail
+		return sdkErrors.ErrInvalidEmail
 	}
 
 	_, err := GetUser(user.Email)
-	if err != errors.ErrNoUser {
-		return errors.ErrUserAlreadyExist
+	if !errors.Is(err, sdkErrors.ErrNoUser) {
+		return sdkErrors.ErrUserAlreadyExist
 	}
 
-	var database = mtgContext.GetDatabase()
-	database.Insert("user", &user)
+	var mongoDatabase = mtgContext.GetDatabase()
+	mongoDatabase.Insert("user", &user)
 
 	return nil
 }
 
 /*
-List all users from the database, and return them in a slice. A limit can be provided to ensure that too many objects
-dont get returned
+IndexUsers List all users from the database, and return them in a slice. A limit can be provided to ensure that too many objects
+don't get returned
 */
-func IndexUsers(limit int64) ([]user.User, error) {
-	var result []user.User
+func IndexUsers(limit int64) ([]*user.User, error) {
+	var result []*user.User
 
-	var database = mtgContext.GetDatabase()
+	var mongoDatabase = mtgContext.GetDatabase()
 
-	results := database.Index("user", limit, &result)
+	results := mongoDatabase.Index("user", limit, &result)
 	if results == nil {
-		return result, errors.ErrNoUser
+		return result, sdkErrors.ErrNoUser
 	}
 
 	return result, nil
 }
 
 /*
-Removes the requested users account from the MongoDB database. Does not remove there account from Auth0. Returns ErrUserMissingId if email is empty string,
+DeleteUser Removes the requested users account from the MongoDB database. Does not remove there account from Auth0. Returns ErrUserMissingId if email is empty string,
 returns ErrInvalidEmail if the email address passed is not valid, returns ErrUserDeleteFailed if the DeletedCount is less than 1, and returns nil otherwise
 */
 func DeleteUser(email string) error {
@@ -107,31 +109,32 @@ func DeleteUser(email string) error {
 		return err
 	}
 
-	var database = mtgContext.GetDatabase()
+	var mongoDatabase = mtgContext.GetDatabase()
 
-	results := database.Delete("user", bson.M{"email": email})
+	results := mongoDatabase.Delete("user", bson.M{"email": email})
 	if results.DeletedCount > 1 {
-		return errors.ErrUserDeleteFailed
+		return sdkErrors.ErrUserDeleteFailed
 	}
 
 	return nil
 }
 
 /*
-Register a new user with Auth0 and store there user model within the MongoDB database
+RegisterUser Register a new user with Auth0 and store there user model within the MongoDB database
 */
-func RegisterUser(username string, email string, password string) (user.User, error) {
-	var ret user.User
-
-	ret.Username = username
-	ret.Email = email
+func RegisterUser(username string, email string, password string) (*userModel.User, error) {
+	ret := &userModel.User{
+		Username: username,
+		Email:    email,
+		Stats:    &userModel.UserStatistics{},
+	}
 
 	if !validateEmail(email) {
-		return ret, errors.ErrInvalidEmail
+		return ret, sdkErrors.ErrInvalidEmail
 	}
 
 	if len(password) < 12 {
-		return ret, errors.ErrInvalidPasswordLength
+		return ret, sdkErrors.ErrInvalidPasswordLength
 	}
 
 	userData := database.SignupRequest{
@@ -145,7 +148,7 @@ func RegisterUser(username string, email string, password string) (user.User, er
 
 	userResp, err := authAPI.Database.Signup(context.Background(), userData)
 	if err != nil {
-		return ret, errors.ErrFailedToRegisterUser
+		return ret, sdkErrors.ErrFailedToRegisterUser
 	}
 
 	ret.Auth0Id = userResp.ID
@@ -159,7 +162,7 @@ func RegisterUser(username string, email string, password string) (user.User, er
 }
 
 /*
-Log a user in with there email address and password and return back a oauth.TokenSet
+LoginUser Log a user in with there email address and password and return back an oauth.TokenSet
 */
 func LoginUser(email string, password string) (*oauth.TokenSet, error) {
 	_, err := GetUser(email)
@@ -192,7 +195,7 @@ func LoginUser(email string, password string) (*oauth.TokenSet, error) {
 }
 
 /*
-Completely removes the requested user account, both from Auth0 and from MongoDB
+DeactivateUser Completely removes the requested user account, both from Auth0 and from MongoDB
 */
 func DeactivateUser(email string) error {
 	user, err := GetUser(email)
@@ -218,7 +221,7 @@ func DeactivateUser(email string) error {
 }
 
 /*
-Send a reset password email to a specified user acocunt.
+ResetUserPassword Send a reset password email to a specified user account.
 */
 func ResetUserPassword(email string) error {
 	_, err := GetUser(email)
