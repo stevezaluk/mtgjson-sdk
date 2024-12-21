@@ -3,6 +3,7 @@ package card
 import (
 	"errors"
 	"github.com/stevezaluk/mtgjson-sdk/context"
+	"go.mongodb.org/mongo-driver/mongo"
 	"regexp"
 
 	"github.com/stevezaluk/mtgjson-models/card"
@@ -56,15 +57,12 @@ representing them. Change this to process all cards in a single database call
 */
 func GetCards(cards []string) []*card.CardSet {
 	var ret []*card.CardSet
-	for i := 0; i < len(cards); i++ {
-		uuid := cards[i]
 
-		cardModel, err := GetCard(uuid)
-		if err != nil {
-			continue
-		}
+	var database = context.GetDatabase()
 
-		ret = append(ret, cardModel)
+	err := database.FindMultiple("card", "identifiers.mtgjsonV4Id", cards, &ret)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return ret
 	}
 
 	return ret

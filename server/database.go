@@ -81,6 +81,24 @@ func (d *Database) Find(collection string, query bson.M, model interface{}) any 
 	return model
 }
 
+func (d *Database) FindMultiple(collection string, key string, value []string, model interface{}) error {
+	coll := d.Database.Collection(collection)
+
+	slog.Debug("FindMultiple Query", "collection", collection, "key", key, "value", value)
+	query := bson.M{key: bson.M{"$in": value}}
+	cur, err := coll.Find(context.TODO(), query)
+	if err != nil {
+		return err
+	}
+
+	err = cur.All(context.TODO(), model)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 /*
 Replace a single document from the MongoDB instance and unmarshal it into the interface
 passed in the 'model' parameter
