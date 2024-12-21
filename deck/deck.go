@@ -13,7 +13,7 @@ Replace the entire deck in the database with the deck model
 passed in the parameter. Returns ErrDeckUpdateFailed if the deck
 cannot be located
 */
-func ReplaceDeck(deck deck_model.Deck) error {
+func ReplaceDeck(deck *deck_model.Deck) error {
 	var database = context.GetDatabase()
 
 	results := database.Replace("deck", bson.M{"code": deck.Code}, &deck)
@@ -67,8 +67,8 @@ func GetDeck(code string) (*deck_model.Deck, error) {
 Returns all decks in the database unmarshalled as deck models. The limit parameter
 will be passed directly to the database query to limit the number of models returned
 */
-func IndexDecks(limit int64) ([]deck_model.Deck, error) {
-	var result []deck_model.Deck
+func IndexDecks(limit int64) ([]*deck_model.Deck, error) {
+	var result []*deck_model.Deck
 
 	var database = context.GetDatabase()
 
