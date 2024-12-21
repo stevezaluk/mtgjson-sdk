@@ -2,11 +2,19 @@ package deck
 
 import (
 	"errors"
+	cardModel "github.com/stevezaluk/mtgjson-models/card"
+	"github.com/stevezaluk/mtgjson-sdk/card"
 	"github.com/stevezaluk/mtgjson-sdk/context"
 
 	deckModel "github.com/stevezaluk/mtgjson-models/deck"
 	sdkErrors "github.com/stevezaluk/mtgjson-models/errors"
 	"go.mongodb.org/mongo-driver/bson"
+)
+
+const (
+	BoardMainboard = "mainBoard"
+	BoardSideboard = "sideBoard"
+	BoardCommander = "commander"
 )
 
 /*
@@ -102,6 +110,46 @@ func NewDeck(deck *deckModel.Deck) error {
 	var database = context.GetDatabase()
 
 	database.Insert("deck", &deck)
+
+	return nil
+}
+
+/*
+GetBoardContents Return a slice of CardSet pointers representing a deck boards content. If the requested board
+does not exist, it will return ErrBoardNotExist
+*/
+func GetBoardContents(contentIds *deckModel.DeckContentIds, board string) ([]*cardModel.CardSet, error) {
+	if board == BoardMainboard {
+		return card.GetCards(contentIds.MainBoard), nil
+	} else if board == BoardSideboard {
+		return card.GetCards(contentIds.SideBoard), nil
+	} else if board == BoardCommander {
+		return card.GetCards(contentIds.Commander), nil
+	}
+
+	return nil, sdkErrors.ErrBoardNotExist
+}
+
+/*
+GetDeckContents Update the 'contents' field of the deck passed in the parameter. This accepts a
+pointer and updates this in place to avoid having to copy large amounts of data
+*/
+func GetDeckContents(deck *deckModel.Deck) error {
+	if deck.ContentIds == nil {
+		return sdkErrors.ErrDeckMissingId
+	}
+
+	mainBoardContents, _ := GetBoardContents(deck.ContentIds, BoardMainboard)
+	sideBoardContents, _ := GetBoardContents(deck.ContentIds, BoardSideboard)
+	commanderContents, _ := GetBoardContents(deck.ContentIds, BoardCommander)
+
+	contents := &deckModel.DeckContents{
+		MainBoard: mainBoardContents,
+		SideBoard: sideBoardContents,
+		Commander: commanderContents,
+	}
+
+	deck.Contents = contents
 
 	return nil
 }
