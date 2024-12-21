@@ -84,12 +84,12 @@ func NewUser(user *user.User) error {
 List all users from the database, and return them in a slice. A limit can be provided to ensure that too many objects
 dont get returned
 */
-func IndexUsers(limit int64) ([]user.User, error) {
-	var result []user.User
+func IndexUsers(limit int64) ([]*user.User, error) {
+	var result []*user.User
 
-	var database = mtgContext.GetDatabase()
+	var mongoDatabase = mtgContext.GetDatabase()
 
-	results := database.Index("user", limit, &result)
+	results := mongoDatabase.Index("user", limit, &result)
 	if results == nil {
 		return result, errors.ErrNoUser
 	}
