@@ -107,9 +107,9 @@ func DeleteUser(email string) error {
 		return err
 	}
 
-	var database = mtgContext.GetDatabase()
+	var mongoDatabase = mtgContext.GetDatabase()
 
-	results := database.Delete("user", bson.M{"email": email})
+	results := mongoDatabase.Delete("user", bson.M{"email": email})
 	if results.DeletedCount > 1 {
 		return errors.ErrUserDeleteFailed
 	}
