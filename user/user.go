@@ -1,13 +1,14 @@
 package user
 
 import (
+	"os/user"
 	"regexp"
 
 	"github.com/auth0/go-auth0/authentication/database"
 	"github.com/auth0/go-auth0/authentication/oauth"
 	"github.com/spf13/viper"
 	"github.com/stevezaluk/mtgjson-models/errors"
-	"github.com/stevezaluk/mtgjson-models/user"
+	userModel "github.com/stevezaluk/mtgjson-models/user"
 	mtgContext "github.com/stevezaluk/mtgjson-sdk/context"
 	"go.mongodb.org/mongo-driver/bson"
 
@@ -34,8 +35,8 @@ func validateEmail(email string) bool {
 /*
 Fetch a user based on there username. Returns ErrNoUser if the user cannot be found
 */
-func GetUser(email string) (*user.User, error) {
-	var result *user.User
+func GetUser(email string) (*userModel.User, error) {
+	var result *userModel.User
 
 	if email == "" {
 		return result, errors.ErrUserMissingId
@@ -60,7 +61,7 @@ func GetUser(email string) (*user.User, error) {
 Insert the contents of a User model in the MongoDB database. Returns ErrUserMissingId if the Username, or Emai is not present
 Returns ErrUserAlreadyExist if a user already exists under this username
 */
-func NewUser(user *user.User) error {
+func NewUser(user *userModel.User) error {
 	if user.Username == "" || user.Email == "" || user.Auth0Id == "" {
 		return errors.ErrUserMissingId
 	}
@@ -120,11 +121,12 @@ func DeleteUser(email string) error {
 /*
 Register a new user with Auth0 and store there user model within the MongoDB database
 */
-func RegisterUser(username string, email string, password string) (user.User, error) {
-	var ret user.User
-
-	ret.Username = username
-	ret.Email = email
+func RegisterUser(username string, email string, password string) (*userModel.User, error) {
+	ret := &userModel.User{
+		Username: username,
+		Email:    email,
+		Stats:    &userModel.UserStatistics{},
+	}
 
 	if !validateEmail(email) {
 		return ret, errors.ErrInvalidEmail
@@ -150,7 +152,7 @@ func RegisterUser(username string, email string, password string) (user.User, er
 
 	ret.Auth0Id = userResp.ID
 
-	err = NewUser(&ret)
+	err = NewUser(ret)
 	if err != nil {
 		return ret, err
 	}
