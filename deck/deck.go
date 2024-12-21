@@ -49,8 +49,8 @@ func DeleteDeck(code string) any {
 Fetch a deck from the MongoDB database using the code passed in the parameter. Returns
 ErrNoDeck if the deck does not exist or cannot be located
 */
-func GetDeck(code string) (deck_model.Deck, error) {
-	var result deck_model.Deck
+func GetDeck(code string) (*deck_model.Deck, error) {
+	var result *deck_model.Deck
 
 	var database = context.GetDatabase()
 
@@ -86,6 +86,10 @@ valid name and deck code, additionally the deck cannot already exist under the s
 */
 func NewDeck(deck *deck_model.Deck) error {
 	if deck.Name == "" || deck.Code == "" {
+		return errors.ErrDeckMissingId
+	}
+
+	if deck.ContentIds == nil {
 		return errors.ErrDeckMissingId
 	}
 
