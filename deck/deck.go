@@ -4,7 +4,7 @@ import (
 	"github.com/stevezaluk/mtgjson-sdk/context"
 
 	deckModel "github.com/stevezaluk/mtgjson-models/deck"
-	"github.com/stevezaluk/mtgjson-models/errors"
+	sdkErrors "github.com/stevezaluk/mtgjson-models/errors"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -18,7 +18,7 @@ func ReplaceDeck(deck *deckModel.Deck) error {
 
 	results := database.Replace("deck", bson.M{"code": deck.Code}, &deck)
 	if results == nil {
-		return errors.ErrDeckUpdateFailed
+		return sdkErrors.ErrDeckUpdateFailed
 	}
 
 	return nil
@@ -35,11 +35,11 @@ func DeleteDeck(code string) any {
 	query := bson.M{"code": code}
 	result := database.Delete("deck", query)
 	if result == nil {
-		return errors.ErrNoDeck
+		return sdkErrors.ErrNoDeck
 	}
 
 	if result.DeletedCount != 1 {
-		return errors.ErrDeckDeleteFailed
+		return sdkErrors.ErrDeckDeleteFailed
 	}
 
 	return result
@@ -57,7 +57,7 @@ func GetDeck(code string) (*deckModel.Deck, error) {
 	query := bson.M{"code": code}
 	results := database.Find("deck", query, &result)
 	if results == nil {
-		return result, errors.ErrNoDeck
+		return result, sdkErrors.ErrNoDeck
 	}
 
 	return result, nil
@@ -74,7 +74,7 @@ func IndexDecks(limit int64) ([]*deckModel.Deck, error) {
 
 	results := database.Index("deck", limit, &result)
 	if results == nil {
-		return result, errors.ErrNoDecks
+		return result, sdkErrors.ErrNoDecks
 	}
 
 	return result, nil
@@ -86,16 +86,16 @@ valid name and deck code, additionally the deck cannot already exist under the s
 */
 func NewDeck(deck *deckModel.Deck) error {
 	if deck.Name == "" || deck.Code == "" {
-		return errors.ErrDeckMissingId
+		return sdkErrors.ErrDeckMissingId
 	}
 
 	if deck.ContentIds == nil {
-		return errors.ErrDeckMissingId
+		return sdkErrors.ErrDeckMissingId
 	}
 
 	_, err := GetDeck(deck.Code)
-	if err != errors.ErrNoDeck {
-		return errors.ErrDeckAlreadyExists
+	if err != sdkErrors.ErrNoDeck {
+		return sdkErrors.ErrDeckAlreadyExists
 	}
 
 	var database = context.GetDatabase()
