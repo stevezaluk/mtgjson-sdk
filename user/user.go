@@ -1,6 +1,7 @@
 package user
 
 import (
+	"errors"
 	"os/user"
 	"regexp"
 
@@ -71,7 +72,7 @@ func NewUser(user *userModel.User) error {
 	}
 
 	_, err := GetUser(user.Email)
-	if err != sdkErrors.ErrNoUser {
+	if !errors.Is(err, sdkErrors.ErrNoUser) {
 		return sdkErrors.ErrUserAlreadyExist
 	}
 
