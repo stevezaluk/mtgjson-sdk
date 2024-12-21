@@ -33,7 +33,7 @@ func validateEmail(email string) bool {
 }
 
 /*
-Fetch a user based on there username. Returns ErrNoUser if the user cannot be found
+GetUser Fetch a user based on their username. Returns ErrNoUser if the user cannot be found
 */
 func GetUser(email string) (*userModel.User, error) {
 	var result *userModel.User
@@ -58,7 +58,7 @@ func GetUser(email string) (*userModel.User, error) {
 }
 
 /*
-Insert the contents of a User model in the MongoDB database. Returns ErrUserMissingId if the Username, or Emai is not present
+NewUser Insert the contents of a User model in the MongoDB database. Returns ErrUserMissingId if the Username, or Email is not present
 Returns ErrUserAlreadyExist if a user already exists under this username
 */
 func NewUser(user *userModel.User) error {
@@ -82,8 +82,8 @@ func NewUser(user *userModel.User) error {
 }
 
 /*
-List all users from the database, and return them in a slice. A limit can be provided to ensure that too many objects
-dont get returned
+IndexUsers List all users from the database, and return them in a slice. A limit can be provided to ensure that too many objects
+don't get returned
 */
 func IndexUsers(limit int64) ([]*user.User, error) {
 	var result []*user.User
@@ -99,7 +99,7 @@ func IndexUsers(limit int64) ([]*user.User, error) {
 }
 
 /*
-Removes the requested users account from the MongoDB database. Does not remove there account from Auth0. Returns ErrUserMissingId if email is empty string,
+DeleteUser Removes the requested users account from the MongoDB database. Does not remove there account from Auth0. Returns ErrUserMissingId if email is empty string,
 returns ErrInvalidEmail if the email address passed is not valid, returns ErrUserDeleteFailed if the DeletedCount is less than 1, and returns nil otherwise
 */
 func DeleteUser(email string) error {
@@ -119,7 +119,7 @@ func DeleteUser(email string) error {
 }
 
 /*
-Register a new user with Auth0 and store there user model within the MongoDB database
+RegisterUser Register a new user with Auth0 and store there user model within the MongoDB database
 */
 func RegisterUser(username string, email string, password string) (*userModel.User, error) {
 	ret := &userModel.User{
@@ -161,7 +161,7 @@ func RegisterUser(username string, email string, password string) (*userModel.Us
 }
 
 /*
-Log a user in with there email address and password and return back a oauth.TokenSet
+LoginUser Log a user in with there email address and password and return back an oauth.TokenSet
 */
 func LoginUser(email string, password string) (*oauth.TokenSet, error) {
 	_, err := GetUser(email)
@@ -194,7 +194,7 @@ func LoginUser(email string, password string) (*oauth.TokenSet, error) {
 }
 
 /*
-Completely removes the requested user account, both from Auth0 and from MongoDB
+DeactivateUser Completely removes the requested user account, both from Auth0 and from MongoDB
 */
 func DeactivateUser(email string) error {
 	user, err := GetUser(email)
@@ -220,7 +220,7 @@ func DeactivateUser(email string) error {
 }
 
 /*
-Send a reset password email to a specified user acocunt.
+ResetUserPassword Send a reset password email to a specified user account.
 */
 func ResetUserPassword(email string) error {
 	_, err := GetUser(email)
