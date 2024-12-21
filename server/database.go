@@ -4,12 +4,10 @@ import (
 	"context"
 	"log/slog"
 
-	"strconv"
-	"strings"
-
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"strconv"
 )
 
 /*
@@ -17,29 +15,15 @@ Database An abstraction of an active mongodb database connection. The same conne
 all SDK operations to ensure that we don't exceed the connection pool limit
 */
 type Database struct {
-	IPAddress string
-	Port      int
-	Username  string
-	Password  string
-
 	Client   *mongo.Client
 	Database *mongo.Database
 }
 
 /*
-BuildUri Build a MongoDB connection URI using the values that are stored within our database object
-*/
-func (d *Database) BuildUri() string {
-	s := []string{"mongodb://", d.Username, ":", d.Password, "@", d.IPAddress, ":", strconv.Itoa(d.Port)}
-	return strings.Join(s, "")
-}
-
-/*
 Connect to the MongoDB instance defined in the Database object
 */
-func (d *Database) Connect() {
+func (d *Database) Connect(uri string) {
 	opts := options.Client()
-	uri := d.BuildUri()
 
 	opts.ApplyURI(uri)
 
@@ -163,4 +147,11 @@ func (d *Database) Index(collection string, limit int64, model interface{}) inte
 	}
 
 	return model
+}
+
+/*
+BuildDatabaseURI Build a MongoDB connection URI using the values that are stored within our database object
+*/
+func BuildDatabaseURI(ipAddress string, port int, username string, password string) string {
+	return "mongodb://" + username + ":" + password + "@" + ipAddress + ":" + strconv.Itoa(port)
 }
