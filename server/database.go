@@ -104,16 +104,16 @@ func (d *Database) FindMultiple(collection string, key string, value []string, m
 Replace a single document from the MongoDB instance and unmarshal it into the interface
 passed in the 'model' parameter
 */
-func (d *Database) Replace(collection string, query bson.M, model interface{}) any {
+func (d *Database) Replace(collection string, query bson.M, model interface{}) (*mongo.UpdateResult, bool) {
 	coll := d.Database.Collection(collection)
 
 	slog.Debug("ReplaceOne Query", "collection", collection, "query", query)
 	result, err := coll.ReplaceOne(context.TODO(), query, model)
-	if err == mongo.ErrNoDocuments {
-		return nil
+	if err != nil {
+		return nil, false
 	}
 
-	return result
+	return result, true
 }
 
 /*
