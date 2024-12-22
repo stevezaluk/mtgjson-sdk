@@ -4,40 +4,26 @@ import (
 	"context"
 	"log/slog"
 
-	"strconv"
-	"strings"
-
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"strconv"
 )
 
 /*
- */
+Database An abstraction of an active mongodb database connection. The same connection is re-used across
+all SDK operations to ensure that we don't exceed the connection pool limit
+*/
 type Database struct {
-	IPAddress string
-	Port      int
-	Username  string
-	Password  string
-
 	Client   *mongo.Client
 	Database *mongo.Database
 }
 
 /*
-Build a MongoDB connection URI using the values that are stored within our database object
-*/
-func (d *Database) BuildUri() string {
-	s := []string{"mongodb://", d.Username, ":", d.Password, "@", d.IPAddress, ":", strconv.Itoa(d.Port)}
-	return strings.Join(s, "")
-}
-
-/*
 Connect to the MongoDB instance defined in the Database object
 */
-func (d *Database) Connect() {
+func (d *Database) Connect(uri string) {
 	opts := options.Client()
-	uri := d.BuildUri()
 
 	opts.ApplyURI(uri)
 
@@ -53,10 +39,10 @@ func (d *Database) Connect() {
 }
 
 /*
-Gracefully disconnect from your active MongoDB connection
+Disconnect Gracefully disconnect from your active MongoDB connection
 */
-func (d Database) Disconnect() {
-	d.Health() // this will throw an fatal error when
+func (d *Database) Disconnect() {
+	d.Health() // this will throw a fatal error when
 
 	slog.Info("Disconnecting from MongoDB")
 	err := d.Client.Disconnect(context.Background())
@@ -67,12 +53,12 @@ func (d Database) Disconnect() {
 }
 
 /*
-Ping the MongoDB database and panic if we don't get a response
+Health Ping the MongoDB database and panic if we don't get a response
 */
-func (d Database) Health() {
+func (d *Database) Health() {
 	err := d.Client.Ping(context.TODO(), nil)
 	if err != nil {
-		slog.Error("Failed to ping MognoDB for health", "err", err.Error())
+		slog.Error("Failed to ping MongoDB for health", "err", err.Error())
 		panic(1)
 	}
 }
@@ -81,84 +67,119 @@ func (d Database) Health() {
 Find a single document from the MongoDB instance and unmarshal it into the interface
 passed in the 'model' parameter
 */
-func (d Database) Find(collection string, query bson.M, model interface{}) any {
+func (d *Database) Find(collection string, query bson.M, model interface{}) bool {
 	coll := d.Database.Collection(collection)
 
-	slog.Debug("Find Query", "collection", collection, "query", query)
+	slog.Debug("FindOne Query", "collection", collection, "query", query)
 	err := coll.FindOne(context.TODO(), query).Decode(model)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil // log here
-		}
+		slog.Error("Error during FineOne Query", "collection", collection, "query", query, "err", err)
+		return false
 	}
 
-	return model
+	return true
+}
+
+func (d *Database) FindMultiple(collection string, key string, value []string, model interface{}) bool {
+	coll := d.Database.Collection(collection)
+
+	slog.Debug("FindMultiple Query", "collection", collection, "key", key, "value", value)
+	query := bson.M{key: bson.M{"$in": value}}
+	cur, err := coll.Find(context.TODO(), query)
+	if err != nil {
+		slog.Error("Error during FindMultiple Query", "collection", collection, "key", key, "value", value, "err", err)
+		return false
+	}
+
+	err = cur.All(context.TODO(), model)
+	if err != nil {
+		slog.Error("Error decoding FindMultiple Query", "collection", collection, "key", key, "value", value, "err", err)
+		return false
+	}
+
+	return true
 }
 
 /*
 Replace a single document from the MongoDB instance and unmarshal it into the interface
 passed in the 'model' parameter
 */
-func (d Database) Replace(collection string, query bson.M, model interface{}) any {
+func (d *Database) Replace(collection string, query bson.M, model interface{}) (*mongo.UpdateResult, bool) {
 	coll := d.Database.Collection(collection)
 
 	slog.Debug("ReplaceOne Query", "collection", collection, "query", query)
 	result, err := coll.ReplaceOne(context.TODO(), query, model)
-	if err == mongo.ErrNoDocuments {
-		return nil
+	if err != nil {
+		return nil, false
 	}
 
-	return result
+	return result, true
 }
 
 /*
 Delete a single document from the MongoDB instance
 */
-func (d Database) Delete(collection string, query bson.M) *mongo.DeleteResult {
+func (d *Database) Delete(collection string, query bson.M) (*mongo.DeleteResult, bool) {
 	coll := d.Database.Collection(collection)
 
 	slog.Debug("DeleteOne Query", "collection", collection, "query", query)
 	result, err := coll.DeleteOne(context.TODO(), query)
-	if err == mongo.ErrNoDocuments {
-		return nil
+	if err != nil { // includes ErrNoDocuments
+		slog.Error("Error during DeleteOne query", "collection", collection, "query", query, "err", err)
+		return nil, false
 	}
 
-	return result
+	if result.DeletedCount < 1 {
+		return result, false
+	}
+
+	return result, true
 }
 
 /*
 Insert the interface represented in the 'model' parameter into the MongoDB
 instance
 */
-func (d Database) Insert(collection string, model interface{}) any {
+func (d *Database) Insert(collection string, model interface{}) (*mongo.InsertOneResult, bool) {
 	coll := d.Database.Collection(collection)
 
-	slog.Debug("Insert Query", "collection", collection)
+	slog.Debug("InsertOne Query", "collection", collection)
 	result, err := coll.InsertOne(context.TODO(), model)
 	if err != nil {
-		return nil
+		slog.Debug("Error during InsertOne Query", "collection", collection, "err", err)
+		return nil, false
 	}
 
-	return result
+	return result, true
 }
 
 /*
-Return all documents in a collection and unmarshal them into the interface passed
-in the 'model' paramter
+Index Return all documents in a collection and unmarshal them into the interface passed
+in the 'model' parameter
 */
-func (d Database) Index(collection string, limit int64, model interface{}) interface{} {
+func (d *Database) Index(collection string, limit int64, model interface{}) bool {
 	opts := options.Find().SetLimit(limit)
 	coll := d.Database.Collection(collection)
 
+	slog.Debug("Index Collection Query", "collection", collection)
 	cur, err := coll.Find(context.TODO(), bson.M{}, opts)
 	if err != nil {
-		return nil
+		slog.Error("Error during Indexing Collection", "collection", collection, "limit", limit, "err", err)
+		return false
 	}
 
 	err = cur.All(context.TODO(), model)
-	if err == mongo.ErrNoDocuments {
-		return nil
+	if err != nil { // includes ErrNoDocuments
+		slog.Error("Error during Marshaling index results", "collection", collection, "limit", limit, "err", err)
+		return false
 	}
 
-	return model
+	return true
+}
+
+/*
+BuildDatabaseURI Build a MongoDB connection URI using the values that are stored within our database object
+*/
+func BuildDatabaseURI(ipAddress string, port int, username string, password string) string {
+	return "mongodb://" + username + ":" + password + "@" + ipAddress + ":" + strconv.Itoa(port)
 }

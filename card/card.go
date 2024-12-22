@@ -54,20 +54,17 @@ func ValidateCards(uuids []string) (bool, []string, []string) {
 GetCards Takes a list of strings representing MTGJSONv4 UUID's and returns a list of card models
 representing them. Change this to process all cards in a single database call
 */
-func GetCards(cards []string) []*card.CardSet {
+func GetCards(cards []string) ([]*card.CardSet, error) {
 	var ret []*card.CardSet
-	for i := 0; i < len(cards); i++ {
-		uuid := cards[i]
 
-		cardModel, err := GetCard(uuid)
-		if err != nil {
-			continue
-		}
+	var database = context.GetDatabase()
 
-		ret = append(ret, cardModel)
+	err := database.FindMultiple("card", "identifiers.mtgjsonV4Id", cards, &ret)
+	if !err {
+		return nil, sdkErrors.ErrNoCards
 	}
 
-	return ret
+	return ret, nil
 }
 
 /*
@@ -84,9 +81,9 @@ func GetCard(uuid string) (*card.CardSet, error) {
 	var database = context.GetDatabase()
 
 	query := bson.M{"identifiers.mtgjsonV4Id": uuid}
-	results := database.Find("card", query, &result)
-	if results == nil {
-		return &result, sdkErrors.ErrNoCard
+	err := database.Find("card", query, &result)
+	if !err {
+		return nil, sdkErrors.ErrNoCard
 	}
 
 	return &result, nil
@@ -97,6 +94,10 @@ NewCard Insert a new card in the form of a model into the MongoDB database. The 
 valid name and MTGJSONv4 ID, additionally, the card cannot already exist under the same ID
 */
 func NewCard(card *card.CardSet) error {
+	if card.Identifiers == nil {
+		return sdkErrors.ErrCardMissingId
+	}
+
 	cardId := card.Identifiers.MtgjsonV4Id
 	if card.Name == "" || cardId == "" {
 		return sdkErrors.ErrCardMissingId
@@ -122,12 +123,12 @@ func DeleteCard(uuid string) error {
 	var database = context.GetDatabase()
 
 	query := bson.M{"identifiers.mtgjsonV4Id": uuid}
-	result := database.Delete("card", query)
-	if result == nil {
+	result, err := database.Delete("card", query)
+	if !err {
 		return sdkErrors.ErrNoCard
 	}
 
-	if result.DeletedCount != 1 {
+	if result.DeletedCount < 1 {
 		return sdkErrors.ErrCardDeleteFailed
 	}
 
@@ -143,9 +144,9 @@ func IndexCards(limit int64) ([]*card.CardSet, error) {
 
 	var database = context.GetDatabase()
 
-	results := database.Index("card", limit, &result)
-	if results == nil {
-		return result, sdkErrors.ErrNoCards
+	err := database.Index("card", limit, &result)
+	if !err {
+		return nil, sdkErrors.ErrNoCards
 	}
 
 	return result, nil

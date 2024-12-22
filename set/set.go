@@ -16,8 +16,8 @@ func GetSet(code string) (*set.Set, error) {
 	var ret *set.Set
 	var database = context.GetDatabase()
 
-	results := database.Find("set", bson.M{"code": code}, &ret)
-	if results == nil {
+	err := database.Find("set", bson.M{"code": code}, &ret)
+	if !err {
 		return ret, sdkErrors.ErrNoSet
 	}
 
@@ -32,8 +32,8 @@ func IndexSets(limit int64) ([]*set.Set, error) {
 	var ret []*set.Set
 	var database = context.GetDatabase()
 
-	results := database.Index("set", limit, ret)
-	if results == nil {
+	err := database.Index("set", limit, ret)
+	if !err {
 		return ret, sdkErrors.ErrNoSet
 	}
 

@@ -25,8 +25,8 @@ cannot be located
 func ReplaceDeck(deck *deckModel.Deck) error {
 	var database = context.GetDatabase()
 
-	results := database.Replace("deck", bson.M{"code": deck.Code}, &deck)
-	if results == nil {
+	_, err := database.Replace("deck", bson.M{"code": deck.Code}, &deck)
+	if !err {
 		return sdkErrors.ErrDeckUpdateFailed
 	}
 
@@ -38,12 +38,12 @@ DeleteDeck Remove a deck from the MongoDB database using the code passed in the
 parameter. Returns ErrNoDeck if the deck does not exist. Returns
 ErrDeckDeleteFailed if the deleted count does not equal 1
 */
-func DeleteDeck(code string) any {
+func DeleteDeck(code string) error {
 	var database = context.GetDatabase()
 
 	query := bson.M{"code": code}
-	result := database.Delete("deck", query)
-	if result == nil {
+	result, err := database.Delete("deck", query)
+	if !err {
 		return sdkErrors.ErrNoDeck
 	}
 
@@ -51,7 +51,7 @@ func DeleteDeck(code string) any {
 		return sdkErrors.ErrDeckDeleteFailed
 	}
 
-	return result
+	return nil
 }
 
 /*
@@ -64,8 +64,8 @@ func GetDeck(code string) (*deckModel.Deck, error) {
 	var database = context.GetDatabase()
 
 	query := bson.M{"code": code}
-	results := database.Find("deck", query, &result)
-	if results == nil {
+	err := database.Find("deck", query, &result)
+	if !err {
 		return result, sdkErrors.ErrNoDeck
 	}
 
@@ -81,8 +81,8 @@ func IndexDecks(limit int64) ([]*deckModel.Deck, error) {
 
 	var database = context.GetDatabase()
 
-	results := database.Index("deck", limit, &result)
-	if results == nil {
+	err := database.Index("deck", limit, &result)
+	if !err {
 		return result, sdkErrors.ErrNoDecks
 	}
 
@@ -119,15 +119,19 @@ GetBoardContents Return a slice of CardSet pointers representing a deck boards c
 does not exist, it will return ErrBoardNotExist
 */
 func GetBoardContents(contentIds *deckModel.DeckContentIds, board string) ([]*cardModel.CardSet, error) {
+	var boardIds []string
+
 	if board == BoardMainboard {
-		return card.GetCards(contentIds.MainBoard), nil
+		boardIds = contentIds.MainBoard
 	} else if board == BoardSideboard {
-		return card.GetCards(contentIds.SideBoard), nil
+		boardIds = contentIds.SideBoard
 	} else if board == BoardCommander {
-		return card.GetCards(contentIds.Commander), nil
+		boardIds = contentIds.Commander
+	} else {
+		return nil, sdkErrors.ErrBoardNotExist
 	}
 
-	return nil, sdkErrors.ErrBoardNotExist
+	return card.GetCards(boardIds)
 }
 
 /*
