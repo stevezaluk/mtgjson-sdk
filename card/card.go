@@ -4,10 +4,19 @@ import (
 	"errors"
 	"github.com/stevezaluk/mtgjson-sdk/context"
 	"regexp"
+	"slices"
 
 	"github.com/stevezaluk/mtgjson-models/card"
 	sdkErrors "github.com/stevezaluk/mtgjson-models/errors"
 	"go.mongodb.org/mongo-driver/bson"
+)
+
+const (
+	UUIDRegexPattern = `^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`
+)
+
+var (
+	UUIDRegex = regexp.MustCompile(UUIDRegexPattern)
 )
 
 /*
@@ -16,10 +25,8 @@ if validation passes, false otherwise
 */
 func ValidateUUID(uuid string) bool {
 	var ret = false
-	var pattern = `^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`
 
-	re := regexp.MustCompile(pattern)
-	if re.MatchString(uuid) {
+	if UUIDRegex.MatchString(uuid) {
 		ret = true
 	}
 
@@ -28,26 +35,49 @@ func ValidateUUID(uuid string) bool {
 
 /*
 ValidateCards Takes a list of strings representing MTGJSONv4 UUID's and ensures that they are both
-valid and exist. Returns 3 variables a boolean and two lists of strings. The boolean
-can be used as a general determination if the validation succeeded
+valid and exist. Returns 3 variables: an error, and two lists of strings.
 */
-func ValidateCards(uuids []string) (bool, []string, []string) {
+func ValidateCards(uuids []string) (error, []string, []string) {
 	var invalidCards []string // cards that failed UUID validation
 	var noExistCards []string // cards that do not exist in Mongo
-	var result = true
+
+	cards, err := GetCards(uuids)
+	if err != nil {
+		return err, invalidCards, noExistCards
+	}
+
+	cardUuids := ExtractCardIds(cards)
 
 	for _, uuid := range uuids {
-		_, err := GetCard(uuid)
-		if errors.Is(err, sdkErrors.ErrNoCard) {
-			result = false
-			noExistCards = append(noExistCards, uuid)
-		} else if errors.Is(err, sdkErrors.ErrInvalidUUID) {
-			result = false
+		isValidUUID := ValidateUUID(uuid)
+		if !isValidUUID {
 			invalidCards = append(invalidCards, uuid)
+			continue
+		}
+
+		if !slices.Contains(cardUuids, uuid) {
+			noExistCards = append(noExistCards, uuid)
 		}
 	}
 
-	return result, invalidCards, noExistCards
+	return nil, invalidCards, noExistCards
+}
+
+/*
+ExtractCardIds Take a list of CardSet models and return the UUID's from them
+*/
+func ExtractCardIds(cards []*card.CardSet) []string {
+	var ret []string
+
+	for _, card := range cards {
+		if card.Identifiers == nil {
+			continue
+		}
+
+		ret = append(ret, card.Identifiers.MtgjsonV4Id)
+	}
+
+	return ret
 }
 
 /*
