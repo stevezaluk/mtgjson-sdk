@@ -40,19 +40,19 @@ func GetUser(email string) (*userModel.User, error) {
 	var result *userModel.User
 
 	if email == "" {
-		return result, sdkErrors.ErrUserMissingId
+		return nil, sdkErrors.ErrUserMissingId
 	}
 
 	if !validateEmail(email) {
-		return result, sdkErrors.ErrInvalidEmail
+		return nil, sdkErrors.ErrInvalidEmail
 	}
 
 	var mongoDatabase = mtgContext.GetDatabase()
 
 	query := bson.M{"email": email}
-	results := mongoDatabase.Find("user", query, &result)
-	if results == nil {
-		return result, sdkErrors.ErrNoUser
+	err := mongoDatabase.Find("user", query, &result)
+	if !err {
+		return nil, sdkErrors.ErrNoUser
 	}
 
 	return result, nil
@@ -91,9 +91,9 @@ func IndexUsers(limit int64) ([]*user.User, error) {
 
 	var mongoDatabase = mtgContext.GetDatabase()
 
-	results := mongoDatabase.Index("user", limit, &result)
-	if results == nil {
-		return result, sdkErrors.ErrNoUser
+	err := mongoDatabase.Index("user", limit, &result)
+	if !err {
+		return nil, sdkErrors.ErrNoUser
 	}
 
 	return result, nil
@@ -111,8 +111,8 @@ func DeleteUser(email string) error {
 
 	var mongoDatabase = mtgContext.GetDatabase()
 
-	results := mongoDatabase.Delete("user", bson.M{"email": email})
-	if results.DeletedCount > 1 {
+	_, valid := mongoDatabase.Delete("user", bson.M{"email": email})
+	if !valid {
 		return sdkErrors.ErrUserDeleteFailed
 	}
 
