@@ -10,16 +10,22 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
+const (
+	UUIDRegexPattern = `^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`
+)
+
+var (
+	UUIDRegex = regexp.MustCompile(UUIDRegexPattern)
+)
+
 /*
 ValidateUUID Validates that the string passed in the argument is a Version 4 UUID. Returns true
 if validation passes, false otherwise
 */
 func ValidateUUID(uuid string) bool {
 	var ret = false
-	var pattern = `^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`
 
-	re := regexp.MustCompile(pattern)
-	if re.MatchString(uuid) {
+	if UUIDRegex.MatchString(uuid) {
 		ret = true
 	}
 
