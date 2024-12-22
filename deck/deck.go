@@ -5,6 +5,7 @@ import (
 	cardModel "github.com/stevezaluk/mtgjson-models/card"
 	"github.com/stevezaluk/mtgjson-sdk/card"
 	"github.com/stevezaluk/mtgjson-sdk/context"
+	"slices"
 
 	deckModel "github.com/stevezaluk/mtgjson-models/deck"
 	sdkErrors "github.com/stevezaluk/mtgjson-models/errors"
@@ -154,6 +155,92 @@ func GetDeckContents(deck *deckModel.Deck) error {
 	}
 
 	deck.Contents = contents
+
+	return nil
+}
+
+/*
+AllCardIds Helper function to combine all card id's in a deck into a a single slice of strings
+*/
+func AllCardIds(deck *deckModel.Deck) ([]string, error) {
+	var ret []string
+
+	if deck.ContentIds == nil {
+		return ret, sdkErrors.ErrDeckMissingId
+	}
+
+	ret = append(ret, deck.ContentIds.MainBoard...)
+	ret = append(ret, deck.ContentIds.SideBoard...)
+	ret = append(ret, deck.ContentIds.Commander...)
+
+	return ret, nil
+}
+
+/*
+AddCards Update the content ids in the deck model passed with new cards. Does not make database calls,
+use ReplaceDeck to update the deck with these values
+*/
+func AddCards(deck *deckModel.Deck, newCards *deckModel.DeckContentIds) error {
+	if deck.ContentIds == nil {
+		return sdkErrors.ErrDeckMissingId
+	}
+
+	deck.ContentIds.MainBoard = append(deck.ContentIds.MainBoard, newCards.MainBoard...)
+	deck.ContentIds.SideBoard = append(deck.ContentIds.SideBoard, newCards.SideBoard...)
+	deck.ContentIds.Commander = append(deck.ContentIds.Commander, newCards.Commander...)
+
+	return nil
+}
+
+func RemoveCardsFromBoard(deck *deckModel.Deck, cards []string, board string) error {
+	if deck.ContentIds == nil {
+		return sdkErrors.ErrDeckMissingId
+	}
+
+	var sourceBoard *[]string
+	if board == BoardMainboard {
+		sourceBoard = &deck.ContentIds.MainBoard
+	} else if board == BoardSideboard {
+		sourceBoard = &deck.ContentIds.SideBoard
+	} else if board == BoardCommander {
+		sourceBoard = &deck.ContentIds.Commander
+	} else {
+		return sdkErrors.ErrBoardNotExist
+	}
+
+	for _, uuid := range cards {
+		for index, value := range *sourceBoard {
+			if value == uuid {
+				*sourceBoard = slices.Delete(*sourceBoard, index, index+1)
+			}
+		}
+	}
+
+	return nil
+}
+
+/*
+RemoveCards Remove cards from the content ids in the deck model passed. Does not make database calls, use ReplaceDeck to update the deck with these values
+*/
+func RemoveCards(deck *deckModel.Deck, removeCards *deckModel.DeckContentIds) error {
+	if deck.ContentIds == nil {
+		return sdkErrors.ErrDeckMissingId
+	}
+
+	err := RemoveCardsFromBoard(deck, removeCards.MainBoard, BoardMainboard)
+	if err != nil {
+		return err
+	}
+
+	err = RemoveCardsFromBoard(deck, removeCards.SideBoard, BoardSideboard)
+	if err != nil {
+		return err
+	}
+
+	err = RemoveCardsFromBoard(deck, removeCards.Commander, BoardCommander)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
