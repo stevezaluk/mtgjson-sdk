@@ -157,3 +157,36 @@ func GetDeckContents(deck *deckModel.Deck) error {
 
 	return nil
 }
+
+/*
+AllCardIds Helper function to combine all card id's in a deck into a a single slice of strings
+*/
+func AllCardIds(deck *deckModel.Deck) ([]string, error) {
+	var ret []string
+
+	if deck.ContentIds == nil {
+		return ret, sdkErrors.ErrDeckMissingId
+	}
+
+	ret = append(ret, deck.ContentIds.MainBoard...)
+	ret = append(ret, deck.ContentIds.SideBoard...)
+	ret = append(ret, deck.ContentIds.Commander...)
+
+	return ret, nil
+}
+
+/*
+AddCards Update the content ids in the deck model passed with new cards. Does not make database calls,
+use ReplaceDeck to update the deck with these values
+*/
+func AddCards(deck *deckModel.Deck, newCards *deckModel.DeckContentIds) error {
+	if deck.ContentIds == nil {
+		return sdkErrors.ErrDeckMissingId
+	}
+
+	deck.ContentIds.MainBoard = append(deck.ContentIds.MainBoard, newCards.MainBoard...)
+	deck.ContentIds.SideBoard = append(deck.ContentIds.SideBoard, newCards.SideBoard...)
+	deck.ContentIds.Commander = append(deck.ContentIds.Commander, newCards.Commander...)
+
+	return nil
+}
