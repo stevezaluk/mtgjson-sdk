@@ -16,8 +16,6 @@ import (
 	"context"
 )
 
-const SCOPE = "read:user write:user read:card write:card read:set write:set read:deck write:deck read:health read:metrics"
-
 /*
 Ensures that the passed string is a valid email address. If the email address is not valid then it returns false,
 true otherwise
@@ -176,7 +174,7 @@ func LoginUser(email string, password string) (*oauth.TokenSet, error) {
 		Username: email,
 		Password: password,
 		Audience: viper.GetString("auth0.audience"),
-		Scope:    SCOPE,
+		Scope:    viper.GetString("auth0.scope"),
 	}
 
 	validateOpts := oauth.IDTokenValidationOptions{}
