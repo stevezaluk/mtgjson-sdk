@@ -160,18 +160,18 @@ func GetDeckContents(deck *deckModel.Deck) error {
 }
 
 /*
-AllCardIds Helper function to combine all card id's in a deck into a a single slice of strings
+AllCardIds Helper function to combine all card id's in a deck into a single slice of strings
 */
-func AllCardIds(deck *deckModel.Deck) ([]string, error) {
+func AllCardIds(contents *deckModel.DeckContentIds) ([]string, error) {
 	var ret []string
 
-	if deck.ContentIds == nil {
+	if contents == nil {
 		return ret, sdkErrors.ErrDeckMissingId
 	}
 
-	ret = append(ret, deck.ContentIds.MainBoard...)
-	ret = append(ret, deck.ContentIds.SideBoard...)
-	ret = append(ret, deck.ContentIds.Commander...)
+	ret = append(ret, contents.MainBoard...)
+	ret = append(ret, contents.SideBoard...)
+	ret = append(ret, contents.Commander...)
 
 	return ret, nil
 }
