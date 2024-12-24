@@ -231,6 +231,13 @@ func AddCards(deck *deckModel.Deck, newCards *deckModel.DeckContentIds) error {
 	deck.ContentIds.SideBoard = append(deck.ContentIds.SideBoard, newCards.SideBoard...)
 	deck.ContentIds.Commander = append(deck.ContentIds.Commander, newCards.Commander...)
 
+	deck.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr()
+
+	err := ReplaceDeck(deck)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -280,6 +287,11 @@ func RemoveCards(deck *deckModel.Deck, removeCards *deckModel.DeckContentIds) er
 	}
 
 	err = RemoveCardsFromBoard(deck, removeCards.Commander, BoardCommander)
+	if err != nil {
+		return err
+	}
+
+	err = ReplaceDeck(deck)
 	if err != nil {
 		return err
 	}
