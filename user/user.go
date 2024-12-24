@@ -16,6 +16,10 @@ import (
 	"context"
 )
 
+const (
+	SystemUser = "system"
+)
+
 /*
 Ensures that the passed string is a valid email address. If the email address is not valid then it returns false,
 true otherwise

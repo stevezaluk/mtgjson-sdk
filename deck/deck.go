@@ -3,8 +3,12 @@ package deck
 import (
 	"errors"
 	cardModel "github.com/stevezaluk/mtgjson-models/card"
+	"github.com/stevezaluk/mtgjson-models/meta"
 	"github.com/stevezaluk/mtgjson-sdk/card"
 	"github.com/stevezaluk/mtgjson-sdk/context"
+	"github.com/stevezaluk/mtgjson-sdk/user"
+	"github.com/stevezaluk/mtgjson-sdk/util"
+
 	"slices"
 
 	deckModel "github.com/stevezaluk/mtgjson-models/deck"
@@ -39,10 +43,14 @@ DeleteDeck Remove a deck from the MongoDB database using the code passed in the
 parameter. Returns ErrNoDeck if the deck does not exist. Returns
 ErrDeckDeleteFailed if the deleted count does not equal 1
 */
-func DeleteDeck(code string) error {
+func DeleteDeck(code string, owner string) error {
 	var database = context.GetDatabase()
 
 	query := bson.M{"code": code}
+	if owner != "" {
+		query = bson.M{"code": code, "mtgjsonApiMeta.owner": owner}
+	}
+
 	result, err := database.Delete("deck", query)
 	if !err {
 		return sdkErrors.ErrNoDeck
@@ -56,15 +64,20 @@ func DeleteDeck(code string) error {
 }
 
 /*
-GetDeck Fetch a deck from the MongoDB database using the code passed in the parameter. Returns
-ErrNoDeck if the deck does not exist or cannot be located
+GetDeck Fetch a deck from the MongoDB database using the code passed in the parameter. Owner
+is the email address of the user that you want to assign to the deck. If the string is empty
+then it does not filter by user. Returns ErrNoDeck if the deck does not exist or cannot be located
 */
-func GetDeck(code string) (*deckModel.Deck, error) {
+func GetDeck(code string, owner string) (*deckModel.Deck, error) {
 	var result *deckModel.Deck
 
 	var database = context.GetDatabase()
 
 	query := bson.M{"code": code}
+	if owner != "" {
+		query = bson.M{"code": code, "mtgjsonApiMeta.owner": owner}
+	}
+
 	err := database.Find("deck", query, &result)
 	if !err {
 		return result, sdkErrors.ErrNoDeck
@@ -92,23 +105,52 @@ func IndexDecks(limit int64) ([]*deckModel.Deck, error) {
 
 /*
 NewDeck Insert a new deck in the form of a model into the MongoDB database. The deck model must have a
-valid name and deck code, additionally the deck cannot already exist under the same deck code
+valid name and deck code, additionally the deck cannot already exist under the same deck code. Owner is
+the email address of the owner you want to assign the deck to. If the string is empty, it will be assigned
+to the system user
 */
-func NewDeck(deck *deckModel.Deck) error {
+func NewDeck(deck *deckModel.Deck, owner string) error {
 	if deck.Name == "" || deck.Code == "" {
 		return sdkErrors.ErrDeckMissingId
 	}
 
-	if deck.ContentIds == nil {
-		return sdkErrors.ErrDeckMissingId
+	if owner == "" {
+		owner = user.SystemUser
 	}
 
-	_, err := GetDeck(deck.Code)
+	if owner != user.SystemUser {
+		_, err := user.GetUser(owner)
+		if err != nil {
+			return err
+		}
+	}
+
+	var database = context.GetDatabase()
+
+	_, err := GetDeck(deck.Code, owner)
 	if !errors.Is(err, sdkErrors.ErrNoDeck) {
 		return sdkErrors.ErrDeckAlreadyExists
 	}
 
-	var database = context.GetDatabase()
+	if deck.ContentIds == nil {
+		deck.ContentIds = &deckModel.DeckContentIds{
+			MainBoard: []string{},
+			SideBoard: []string{},
+			Commander: []string{},
+		}
+	}
+
+	currentDate := util.CreateTimestampStr()
+	if deck.ReleaseDate == "" {
+		deck.ReleaseDate = currentDate
+	}
+
+	deck.MtgjsonApiMeta = &meta.MTGJSONAPIMeta{
+		Owner:        owner,
+		Type:         "Deck",
+		CreationDate: currentDate,
+		ModifiedDate: currentDate,
+	}
 
 	database.Insert("deck", &deck)
 
@@ -177,8 +219,7 @@ func AllCardIds(contents *deckModel.DeckContentIds) ([]string, error) {
 }
 
 /*
-AddCards Update the content ids in the deck model passed with new cards. Does not make database calls,
-use ReplaceDeck to update the deck with these values
+AddCards Update the content ids in the deck model passed with new cards.
 */
 func AddCards(deck *deckModel.Deck, newCards *deckModel.DeckContentIds) error {
 	if deck.ContentIds == nil {
@@ -188,6 +229,13 @@ func AddCards(deck *deckModel.Deck, newCards *deckModel.DeckContentIds) error {
 	deck.ContentIds.MainBoard = append(deck.ContentIds.MainBoard, newCards.MainBoard...)
 	deck.ContentIds.SideBoard = append(deck.ContentIds.SideBoard, newCards.SideBoard...)
 	deck.ContentIds.Commander = append(deck.ContentIds.Commander, newCards.Commander...)
+
+	deck.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr()
+
+	err := ReplaceDeck(deck)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -220,7 +268,7 @@ func RemoveCardsFromBoard(deck *deckModel.Deck, cards []string, board string) er
 }
 
 /*
-RemoveCards Remove cards from the content ids in the deck model passed. Does not make database calls, use ReplaceDeck to update the deck with these values
+RemoveCards Remove cards from the content ids in the deck model passed.
 */
 func RemoveCards(deck *deckModel.Deck, removeCards *deckModel.DeckContentIds) error {
 	if deck.ContentIds == nil {
@@ -238,6 +286,11 @@ func RemoveCards(deck *deckModel.Deck, removeCards *deckModel.DeckContentIds) er
 	}
 
 	err = RemoveCardsFromBoard(deck, removeCards.Commander, BoardCommander)
+	if err != nil {
+		return err
+	}
+
+	err = ReplaceDeck(deck)
 	if err != nil {
 		return err
 	}
