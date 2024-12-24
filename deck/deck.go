@@ -219,8 +219,7 @@ func AllCardIds(contents *deckModel.DeckContentIds) ([]string, error) {
 }
 
 /*
-AddCards Update the content ids in the deck model passed with new cards. Does not make database calls,
-use ReplaceDeck to update the deck with these values
+AddCards Update the content ids in the deck model passed with new cards.
 */
 func AddCards(deck *deckModel.Deck, newCards *deckModel.DeckContentIds) error {
 	if deck.ContentIds == nil {
@@ -269,7 +268,7 @@ func RemoveCardsFromBoard(deck *deckModel.Deck, cards []string, board string) er
 }
 
 /*
-RemoveCards Remove cards from the content ids in the deck model passed. Does not make database calls, use ReplaceDeck to update the deck with these values
+RemoveCards Remove cards from the content ids in the deck model passed.
 */
 func RemoveCards(deck *deckModel.Deck, removeCards *deckModel.DeckContentIds) error {
 	if deck.ContentIds == nil {
