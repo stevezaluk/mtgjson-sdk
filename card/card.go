@@ -2,7 +2,10 @@ package card
 
 import (
 	"errors"
+	"github.com/stevezaluk/mtgjson-models/meta"
 	"github.com/stevezaluk/mtgjson-sdk/context"
+	"github.com/stevezaluk/mtgjson-sdk/user"
+	"github.com/stevezaluk/mtgjson-sdk/util"
 	"regexp"
 	"slices"
 
@@ -101,7 +104,7 @@ func GetCards(cards []string) ([]*card.CardSet, error) {
 GetCard Takes a single string representing an MTGJSONv4 UUID and return a card model
 for it
 */
-func GetCard(uuid string) (*card.CardSet, error) {
+func GetCard(uuid string, owner string) (*card.CardSet, error) {
 	var result card.CardSet
 
 	if !ValidateUUID(uuid) {
@@ -111,6 +114,10 @@ func GetCard(uuid string) (*card.CardSet, error) {
 	var database = context.GetDatabase()
 
 	query := bson.M{"identifiers.mtgjsonV4Id": uuid}
+	if owner != "" {
+		owner = "system"
+	}
+
 	err := database.Find("card", query, &result)
 	if !err {
 		return nil, sdkErrors.ErrNoCard
@@ -123,7 +130,7 @@ func GetCard(uuid string) (*card.CardSet, error) {
 NewCard Insert a new card in the form of a model into the MongoDB database. The card model must have a
 valid name and MTGJSONv4 ID, additionally, the card cannot already exist under the same ID
 */
-func NewCard(card *card.CardSet) error {
+func NewCard(card *card.CardSet, owner string) error {
 	if card.Identifiers == nil {
 		return sdkErrors.ErrCardMissingId
 	}
@@ -133,9 +140,29 @@ func NewCard(card *card.CardSet) error {
 		return sdkErrors.ErrCardMissingId
 	}
 
-	_, err := GetCard(cardId)
+	if owner == "" {
+		owner = user.SystemUser
+	}
+
+	if owner != user.SystemUser {
+		_, err := user.GetUser(owner)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err := GetCard(cardId, owner)
 	if !errors.Is(err, sdkErrors.ErrNoCard) {
 		return sdkErrors.ErrCardAlreadyExist
+	}
+
+	currentDate := util.CreateTimestampStr()
+	card.MtgjsonApiMeta = &meta.MTGJSONAPIMeta{
+		Owner:        owner,
+		Type:         "Card",
+		Subtype:      "Set",
+		CreationDate: currentDate,
+		ModifiedDate: currentDate,
 	}
 
 	var database = context.GetDatabase()
@@ -149,10 +176,13 @@ DeleteCard Remove a card from the MongoDB database. The UUID passed in the param
 ErrNoCard will be returned if no card exists under the passed UUID, and ErrCardDeleteFailed will be returned
 if the deleted count does not equal 1
 */
-func DeleteCard(uuid string) error {
+func DeleteCard(uuid string, owner string) error {
 	var database = context.GetDatabase()
 
 	query := bson.M{"identifiers.mtgjsonV4Id": uuid}
+	if owner != "" {
+		query = bson.M{"identifiers.mtgjsonV4Id": uuid, "mtgjsonApiMeta.owner": owner}
+	}
 	result, err := database.Delete("card", query)
 	if !err {
 		return sdkErrors.ErrNoCard
