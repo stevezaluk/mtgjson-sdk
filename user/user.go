@@ -61,6 +61,20 @@ func GetUser(email string) (*userModel.User, error) {
 }
 
 /*
+GetEmailFromToken Fetch a users email from an authentication token passed to them
+*/
+func GetEmailFromToken(token string) (string, error) {
+	var authApi = mtgContext.GetAuthAPI()
+
+	userInfo, err := authApi.UserInfo(context.Background(), token)
+	if err != nil {
+		return "", err
+	}
+
+	return userInfo.Email, nil
+}
+
+/*
 NewUser Insert the contents of a User model in the MongoDB database. Returns ErrUserMissingId if the Username, or Email is not present
 Returns ErrUserAlreadyExist if a user already exists under this username
 */
