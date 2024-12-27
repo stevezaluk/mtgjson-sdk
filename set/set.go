@@ -7,6 +7,7 @@ import (
 	"github.com/stevezaluk/mtgjson-sdk/context"
 	"github.com/stevezaluk/mtgjson-sdk/user"
 	"github.com/stevezaluk/mtgjson-sdk/util"
+	"slices"
 
 	sdkErrors "github.com/stevezaluk/mtgjson-models/errors"
 	"github.com/stevezaluk/mtgjson-models/set"
@@ -97,12 +98,38 @@ func NewSet(set *set.Set, owner string) error {
 
 /*
 AddCards Update the contentIds in the set model passed with new cards.
-This should probably perform card validation in the future
+This should probably perform card validation in the future. This should also be updated
+to allow multiples of cards to be added
 */
 func AddCards(set *set.Set, newCards []string) error {
 	set.ContentIds = append(set.ContentIds, newCards...)
 
 	set.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr() // need better error checking here
+
+	err := ReplaceSet(set)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+/*
+RemoveCards Update the contentIds in the set model with the cards to be removed in the
+cards array. This should be updated to support removing multiples of one card at a time
+*/
+func RemoveCards(set *set.Set, cards []string) error {
+	if set.ContentIds == nil {
+		return sdkErrors.ErrSetMissingId
+	}
+
+	for _, uuid := range cards {
+		for index, value := range set.ContentIds {
+			if value == uuid {
+				set.ContentIds = slices.Delete(set.ContentIds, index, index+1)
+			}
+		}
+	}
 
 	err := ReplaceSet(set)
 	if err != nil {
