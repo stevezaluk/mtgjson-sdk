@@ -115,7 +115,7 @@ func GetCard(uuid string, owner string) (*card.CardSet, error) {
 
 	query := bson.M{"identifiers.mtgjsonV4Id": uuid}
 	if owner != "" {
-		owner = "system"
+		query = bson.M{"identifiers.mtgjsonV4Id": uuid, "mtgjsonApiMeta.owner": owner}
 	}
 
 	err := database.Find("card", query, &result)
