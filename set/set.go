@@ -102,7 +102,7 @@ This should probably perform card validation in the future
 func AddCards(set *set.Set, newCards []string) error {
 	set.ContentIds = append(set.ContentIds, newCards...)
 
-	set.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr()
+	set.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr() // need better error checking here
 
 	err := ReplaceSet(set)
 	if err != nil {
