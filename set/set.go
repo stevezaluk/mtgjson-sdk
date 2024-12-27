@@ -13,6 +13,21 @@ import (
 )
 
 /*
+ReplaceSet Replace the entire set in the database with the model passed in the parameter.
+Returns ErrSetUpdateFailed if the set cannot be located
+*/
+func ReplaceSet(set *set.Set) error {
+	var database = context.GetDatabase()
+
+	_, err := database.Replace("set", bson.M{"code": set.Code}, &set)
+	if !err {
+		return sdkErrors.ErrSetUpdateFailed
+	}
+
+	return nil
+}
+
+/*
 GetSet Takes a single string representing a set code and returns a set model for the set.
 Returns ErrNoSet if the set does not exist, or cannot be located
 */
