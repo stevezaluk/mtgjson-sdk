@@ -80,6 +80,32 @@ func NewSet(set *set.Set, owner string) error {
 }
 
 /*
+DeleteSet Remove a set from the MongoDB database using the code passed in the parameter.
+Returns ErrNoSet if the set does not exist. Returns ErrSetDeleteFailed if the deleted count
+does not equal 1
+*/
+func DeleteSet(code string, owner string) error {
+	var database = context.GetDatabase()
+
+	query := bson.M{"code": code}
+	if owner != "" {
+		query = bson.M{"code": code, "mtgjsonApiMeta.owner": owner}
+	}
+
+	result, err := database.Delete("set", query)
+	if !err {
+		return sdkErrors.ErrNoSet
+	}
+
+	if result.DeletedCount != 1 {
+		return sdkErrors.ErrSetDeleteFailed
+	}
+
+	return nil
+
+}
+
+/*
 IndexSets Returns all sets in the database unmarshalled as card models. The limit parameter
 will be passed directly to the database query to limit the number of models returned
 */
