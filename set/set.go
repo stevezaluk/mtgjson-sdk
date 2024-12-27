@@ -104,6 +104,10 @@ to allow multiples of cards to be added
 func AddCards(set *set.Set, newCards []string) error {
 	set.ContentIds = append(set.ContentIds, newCards...)
 
+	if set.MtgjsonApiMeta == nil {
+		return sdkErrors.ErrMissingMetaApi
+	}
+
 	set.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr() // need better error checking here
 
 	err := ReplaceSet(set)
@@ -120,7 +124,7 @@ cards array. This should be updated to support removing multiples of one card at
 */
 func RemoveCards(set *set.Set, cards []string) error {
 	if set.ContentIds == nil {
-		return sdkErrors.ErrSetMissingId
+		return sdkErrors.ErrSetMissingContentIds
 	}
 
 	for _, uuid := range cards {
@@ -130,6 +134,12 @@ func RemoveCards(set *set.Set, cards []string) error {
 			}
 		}
 	}
+
+	if set.MtgjsonApiMeta == nil {
+		return sdkErrors.ErrMissingMetaApi
+	}
+
+	set.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr()
 
 	err := ReplaceSet(set)
 	if err != nil {
@@ -141,7 +151,7 @@ func RemoveCards(set *set.Set, cards []string) error {
 
 func GetSetContents(set *set.Set) error {
 	if set.ContentIds == nil || len(set.ContentIds) == 0 {
-		return sdkErrors.ErrSetMissingId
+		return sdkErrors.ErrSetMissingContentIds
 	}
 
 	contents, err := card.GetCards(set.ContentIds)
