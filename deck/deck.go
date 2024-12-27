@@ -219,7 +219,8 @@ func AllCardIds(contents *deckModel.DeckContentIds) ([]string, error) {
 }
 
 /*
-AddCards Update the content ids in the deck model passed with new cards.
+AddCards Update the content ids in the deck model passed with new cards. This should
+probably validate cards in the future
 */
 func AddCards(deck *deckModel.Deck, newCards *deckModel.DeckContentIds) error {
 	if deck.ContentIds == nil {
@@ -230,7 +231,7 @@ func AddCards(deck *deckModel.Deck, newCards *deckModel.DeckContentIds) error {
 	deck.ContentIds.SideBoard = append(deck.ContentIds.SideBoard, newCards.SideBoard...)
 	deck.ContentIds.Commander = append(deck.ContentIds.Commander, newCards.Commander...)
 
-	deck.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr()
+	deck.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr() // need better error checking here
 
 	err := ReplaceDeck(deck)
 	if err != nil {
