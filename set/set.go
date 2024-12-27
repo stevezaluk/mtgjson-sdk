@@ -3,6 +3,7 @@ package set
 import (
 	"errors"
 	"github.com/stevezaluk/mtgjson-models/meta"
+	"github.com/stevezaluk/mtgjson-sdk/card"
 	"github.com/stevezaluk/mtgjson-sdk/context"
 	"github.com/stevezaluk/mtgjson-sdk/user"
 	"github.com/stevezaluk/mtgjson-sdk/util"
@@ -90,6 +91,38 @@ func NewSet(set *set.Set, owner string) error {
 	}
 
 	database.Insert("set", &set)
+
+	return nil
+}
+
+/*
+AddCards Update the contentIds in the set model passed with new cards.
+This should probably perform card validation in the future
+*/
+func AddCards(set *set.Set, newCards []string) error {
+	set.ContentIds = append(set.ContentIds, newCards...)
+
+	set.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr()
+
+	err := ReplaceSet(set)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func GetSetContents(set *set.Set) error {
+	if set.ContentIds == nil || len(set.ContentIds) == 0 {
+		return sdkErrors.ErrSetMissingId
+	}
+
+	contents, err := card.GetCards(set.ContentIds)
+	if err != nil {
+		return err
+	}
+
+	set.Contents = contents
 
 	return nil
 }
