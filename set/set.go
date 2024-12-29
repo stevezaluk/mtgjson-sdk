@@ -79,6 +79,8 @@ func NewSet(set *set.Set, owner string) error {
 		return sdkErrors.ErrSetAlreadyExists
 	}
 
+	set.ContentIds = []string{}
+
 	currentDate := util.CreateTimestampStr()
 	if set.ReleaseDate == "" {
 		set.ReleaseDate = currentDate
@@ -102,6 +104,10 @@ This should probably perform card validation in the future. This should also be 
 to allow multiples of cards to be added
 */
 func AddCards(set *set.Set, newCards []string) error {
+	if newCards == nil || len(newCards) == 0 {
+		return nil // no new cards to add. returning nil here to not consume a database call
+	}
+
 	set.ContentIds = append(set.ContentIds, newCards...)
 
 	if set.MtgjsonApiMeta == nil {
@@ -123,8 +129,8 @@ RemoveCards Update the contentIds in the set model with the cards to be removed 
 cards array. This should be updated to support removing multiples of one card at a time
 */
 func RemoveCards(set *set.Set, cards []string) error {
-	if set.ContentIds == nil {
-		return sdkErrors.ErrSetMissingContentIds
+	if cards == nil || len(cards) == 0 {
+		return nil // no new cards to add. returning nil here to not consume a database call
 	}
 
 	for _, uuid := range cards {
@@ -151,7 +157,7 @@ func RemoveCards(set *set.Set, cards []string) error {
 
 func GetSetContents(set *set.Set) error {
 	if set.ContentIds == nil || len(set.ContentIds) == 0 {
-		return sdkErrors.ErrSetMissingContentIds
+		return nil // returning nil here to not consume a database call
 	}
 
 	contents, err := card.GetCards(set.ContentIds)
