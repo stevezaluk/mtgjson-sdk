@@ -79,6 +79,8 @@ func NewSet(set *set.Set, owner string) error {
 		return sdkErrors.ErrSetAlreadyExists
 	}
 
+	set.ContentIds = []string{}
+
 	currentDate := util.CreateTimestampStr()
 	if set.ReleaseDate == "" {
 		set.ReleaseDate = currentDate
