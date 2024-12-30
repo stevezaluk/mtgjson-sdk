@@ -157,6 +157,11 @@ func RemoveCards(set *set.Set, cards []string) error {
 	return nil
 }
 
+/*
+GetSetContents Update the contents field of the set passed in the parameter using the GetCards
+function. Consumes a single database call. If the contentIds field is nil or has a length of 0,
+it will return nil and abort the call
+*/
 func GetSetContents(set *set.Set) error {
 	if set.ContentIds == nil || len(set.ContentIds) == 0 {
 		return nil // returning nil here to not consume a database call
