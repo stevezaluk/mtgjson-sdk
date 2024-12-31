@@ -178,6 +178,22 @@ func (d *Database) Index(collection string, limit int64, model interface{}) bool
 }
 
 /*
+SetField Update a single field in a requested document in the Mongo Database
+*/
+func (d *Database) SetField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
+	coll := d.Database.Collection(collection)
+
+	slog.Debug("SetField Query", "collection", collection, "query", query, "fields", fields)
+	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$set": fields})
+	if err != nil {
+		slog.Error("Error during SetField Operation", "collection", collection, "query", query, "fields", fields)
+		return nil, false
+	}
+
+	return results, true
+}
+
+/*
 BuildDatabaseURI Build a MongoDB connection URI using the values that are stored within our database object
 */
 func BuildDatabaseURI(ipAddress string, port int, username string, password string) string {
