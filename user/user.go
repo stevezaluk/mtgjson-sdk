@@ -92,6 +92,18 @@ func NewUser(user *userModel.User) error {
 		return sdkErrors.ErrUserAlreadyExist
 	}
 
+	if len(user.OwnedCards) == 0 || user.OwnedCards == nil {
+		user.OwnedCards = []string{}
+	}
+
+	if len(user.OwnedSets) == 0 || user.OwnedSets == nil {
+		user.OwnedSets = []string{}
+	}
+
+	if len(user.OwnedDecks) == 0 || user.OwnedDecks == nil {
+		user.OwnedDecks = []string{}
+	}
+
 	var mongoDatabase = mtgContext.GetDatabase()
 	mongoDatabase.Insert("user", &user)
 

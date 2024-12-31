@@ -178,6 +178,71 @@ func (d *Database) Index(collection string, limit int64, model interface{}) bool
 }
 
 /*
+SetField Update a single field in a requested document in the Mongo Database
+*/
+func (d *Database) SetField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
+	coll := d.Database.Collection(collection)
+
+	slog.Debug("SetField Query", "collection", collection, "query", query, "fields", fields)
+	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$set": fields})
+	if err != nil {
+		slog.Error("Error during SetField Operation", "collection", collection, "query", query, "fields", fields, "err", err)
+		return nil, false
+	}
+
+	return results, true
+}
+
+/*
+AppendField Append an item to a field in a single document in the Mongo Database
+*/
+func (d *Database) AppendField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
+	coll := d.Database.Collection(collection)
+
+	slog.Debug("AppendField Query", "collection", collection, "query", query, "fields", fields)
+	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$push": fields})
+	if err != nil {
+		slog.Error("Error during AppendField Operation", "collection", collection, "query", query, "fields", fields, "err", err)
+		return nil, false
+	}
+
+	return results, true
+}
+
+/*
+PullField Remove all instances of an object from an array in a single document
+*/
+func (d *Database) PullField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
+	coll := d.Database.Collection(collection)
+
+	slog.Debug("PullField Query", "collection", collection, "query", query, "fields", fields)
+	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$pull": fields})
+	if err != nil {
+		slog.Error("Error during PullField Operation", "collection", collection, "query", query, "fields", fields, "err", err)
+		return nil, false
+	}
+
+	return results, true
+}
+
+/*
+IncrementField Increment a single field in a document
+*/
+func (d *Database) IncrementField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
+	coll := d.Database.Collection(collection)
+
+	slog.Debug("IncrementField Query", "collection", collection, "query", query, "fields", fields)
+	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$inc": fields})
+	if err != nil {
+		slog.Error("Error during IncrementField Operation", "collection", collection, "query", query, "fields", fields, "err", err)
+		return nil, false
+	}
+
+	return results, true
+
+}
+
+/*
 BuildDatabaseURI Build a MongoDB connection URI using the values that are stored within our database object
 */
 func BuildDatabaseURI(ipAddress string, port int, username string, password string) string {
