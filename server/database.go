@@ -226,6 +226,23 @@ func (d *Database) PullField(collection string, query bson.M, fields bson.M) (*m
 }
 
 /*
+IncrementField Increment a single field in a document
+*/
+func (d *Database) IncrementField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
+	coll := d.Database.Collection(collection)
+
+	slog.Debug("IncrementField Query", "collection", collection, "query", query, "fields", fields)
+	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$inc": fields})
+	if err != nil {
+		slog.Error("Error during IncrementField Operation", "collection", collection, "query", query, "fields", fields, "err", err)
+		return nil, false
+	}
+
+	return results, true
+
+}
+
+/*
 BuildDatabaseURI Build a MongoDB connection URI using the values that are stored within our database object
 */
 func BuildDatabaseURI(ipAddress string, port int, username string, password string) string {
