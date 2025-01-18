@@ -156,6 +156,41 @@ func NewCard(card *card.CardSet, owner string) error {
 		return sdkErrors.ErrCardAlreadyExist
 	}
 
+	if card.LeadershipSkills == nil {
+		card.LeadershipSkills = &meta.LeadershipSkills{}
+	}
+
+	if card.PurchaseUrls == nil {
+		card.PurchaseUrls = &meta.PurchaseUrls{}
+	}
+
+	if card.Legalities == nil {
+		card.Legalities = &meta.CardLegalities{}
+	}
+
+	if card.RelatedCards == nil {
+		card.RelatedCards = &meta.RelatedCards{
+			ReverseRelated: []string{},
+			Spellbook:      []string{},
+		}
+	}
+
+	if card.Rulings == nil {
+		card.Rulings = []*meta.CardRulings{}
+	}
+
+	if card.SourceProducts == nil {
+		card.SourceProducts = &meta.SourceProducts{
+			Etched:  []string{},
+			Foil:    []string{},
+			Nonfoil: []string{},
+		}
+	}
+
+	if card.ForeignData == nil {
+		card.ForeignData = []*meta.ForeignData{}
+	}
+
 	currentDate := util.CreateTimestampStr()
 	card.MtgjsonApiMeta = &meta.MTGJSONAPIMeta{
 		Owner:        owner,
