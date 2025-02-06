@@ -120,6 +120,13 @@ func (ctx *ServerContext) AuthManagementAPI() *management.Management {
 }
 
 /*
+Context - Return a copy of the context used for the Database
+*/
+func (ctx *ServerContext) Context() context.Context {
+	return ctx.context
+}
+
+/*
 InitConfig - Initialize viper to parse our config file or use environmental varibales to provide
 the values we need. Additionally, a config path can be passed to the function to override
 the default value
