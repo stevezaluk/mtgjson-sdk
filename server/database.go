@@ -17,20 +17,29 @@ all SDK operations to ensure that we don't exceed the connection pool limit
 type Database struct {
 	client   *mongo.Client
 	database *mongo.Database
+
+	URI string
+}
+
+/*
+NewDatabase - A constructor for the Database struct
+*/
+func NewDatabase(ipAddress string, port int, username string, password string) *Database {
+	return &Database{URI: BuildDatabaseURI(ipAddress, port, username, password)}
 }
 
 /*
 Connect to the MongoDB instance defined in the Database object
 */
-func (d *Database) Connect(uri string) {
+func (d *Database) Connect() {
 	opts := options.Client()
 
-	opts.ApplyURI(uri)
+	opts.ApplyURI(d.URI)
 
 	slog.Info("Connecting to mongoDB")
 	client, err := mongo.Connect(context.TODO(), opts)
 	if err != nil {
-		slog.Error("Failed to connect to MongoDB", "uri", uri)
+		slog.Error("Failed to connect to MongoDB", "uri", d.URI)
 		panic(1) // panic here as this is a fatal error
 	}
 
