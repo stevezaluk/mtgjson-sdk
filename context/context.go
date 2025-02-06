@@ -65,6 +65,7 @@ func (ctx *ServerContext) WithDatabase(ipAddress string, port int, username stri
 
 	viper.Set("mongo.uri", server.BuildDatabaseURI(ipAddress, port, username, password))
 	database.Connect(viper.GetString("mongo.uri"))
+	ctx.database = database
 }
 
 /*
