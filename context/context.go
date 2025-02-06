@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	DEFAULT_CONFIG_PATH = "/.config/mtgjson-api/"
-	DEFAULT_CONFIG_FILE = "config.json"
+	defaultConfigPath = "/.config/mtgjson-api/"
+	defaultConfigName = "config.json"
 )
 
 /*
@@ -120,7 +120,7 @@ func (ctx *ServerContext) AuthManagementAPI() *management.Management {
 }
 
 /*
-Initialize viper to parse our config file or use environmental varibales to provide
+InitConfig - Initialize viper to parse our config file or use environmental varibales to provide
 the values we need. Additionally, a config path can be passed to the function to override
 the default value
 */
@@ -134,8 +134,8 @@ func InitConfig(configPath string) {
 		}
 
 		viper.SetConfigType("json")
-		viper.AddConfigPath(home + DEFAULT_CONFIG_PATH)
-		viper.SetConfigName(DEFAULT_CONFIG_FILE)
+		viper.AddConfigPath(home + defaultConfigPath)
+		viper.SetConfigName(defaultConfigName)
 	}
 
 	viper.AutomaticEnv()
