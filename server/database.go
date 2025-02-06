@@ -29,6 +29,20 @@ func NewDatabase(ipAddress string, port int, username string, password string) *
 }
 
 /*
+Client - Returns a pointer to the underlying mongo client
+*/
+func (d *Database) Client() *mongo.Client {
+	return d.client
+}
+
+/*
+Database - Returns a pointer to the underlying mongo database
+*/
+func (d *Database) Database() *mongo.Database {
+	return d.database
+}
+
+/*
 Connect to the MongoDB instance defined in the Database object
 */
 func (d *Database) Connect() {
