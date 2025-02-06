@@ -27,10 +27,9 @@ ReplaceDeck Replace the entire deck in the database with the deck model
 passed in the parameter. Returns ErrDeckUpdateFailed if the deck
 cannot be located
 */
-func ReplaceDeck(deck *deckModel.Deck) error {
-	var database = context.GetDatabase()
+func ReplaceDeck(ctx *context.ServerContext, deck *deckModel.Deck) error {
 
-	_, err := database.Replace("deck", bson.M{"code": deck.Code}, &deck)
+	_, err := ctx.Database().Replace("deck", bson.M{"code": deck.Code}, &deck)
 	if !err {
 		return sdkErrors.ErrDeckUpdateFailed
 	}
@@ -43,15 +42,14 @@ DeleteDeck Remove a deck from the MongoDB database using the code passed in the
 parameter. Returns ErrNoDeck if the deck does not exist. Returns
 ErrDeckDeleteFailed if the deleted count does not equal 1
 */
-func DeleteDeck(code string, owner string) error {
-	var database = context.GetDatabase()
+func DeleteDeck(ctx *context.ServerContext, code string, owner string) error {
 
 	query := bson.M{"code": code}
 	if owner != "" {
 		query = bson.M{"code": code, "mtgjsonApiMeta.owner": owner}
 	}
 
-	result, err := database.Delete("deck", query)
+	result, err := ctx.Database().Delete("deck", query)
 	if !err {
 		return sdkErrors.ErrNoDeck
 	}
@@ -68,17 +66,15 @@ GetDeck Fetch a deck from the MongoDB database using the code passed in the para
 is the email address of the user that you want to assign to the deck. If the string is empty
 then it does not filter by user. Returns ErrNoDeck if the deck does not exist or cannot be located
 */
-func GetDeck(code string, owner string) (*deckModel.Deck, error) {
+func GetDeck(ctx *context.ServerContext, code string, owner string) (*deckModel.Deck, error) {
 	var result *deckModel.Deck
-
-	var database = context.GetDatabase()
 
 	query := bson.M{"code": code}
 	if owner != "" {
 		query = bson.M{"code": code, "mtgjsonApiMeta.owner": owner}
 	}
 
-	err := database.Find("deck", query, &result)
+	err := ctx.Database().Find("deck", query, &result)
 	if !err {
 		return result, sdkErrors.ErrNoDeck
 	}
@@ -90,12 +86,10 @@ func GetDeck(code string, owner string) (*deckModel.Deck, error) {
 IndexDecks Returns all decks in the database unmarshalled as deck models. The limit parameter
 will be passed directly to the database query to limit the number of models returned
 */
-func IndexDecks(limit int64) ([]*deckModel.Deck, error) {
+func IndexDecks(ctx *context.ServerContext, limit int64) ([]*deckModel.Deck, error) {
 	var result []*deckModel.Deck
 
-	var database = context.GetDatabase()
-
-	err := database.Index("deck", limit, &result)
+	err := ctx.Database().Index("deck", limit, &result)
 	if !err {
 		return result, sdkErrors.ErrNoDecks
 	}
@@ -109,7 +103,7 @@ valid name and deck code, additionally the deck cannot already exist under the s
 the email address of the owner you want to assign the deck to. If the string is empty, it will be assigned
 to the system user
 */
-func NewDeck(deck *deckModel.Deck, owner string) error {
+func NewDeck(ctx *context.ServerContext, deck *deckModel.Deck, owner string) error {
 	if deck.Name == "" || deck.Code == "" {
 		return sdkErrors.ErrDeckMissingId
 	}
@@ -119,15 +113,13 @@ func NewDeck(deck *deckModel.Deck, owner string) error {
 	}
 
 	if owner != user.SystemUser {
-		_, err := user.GetUser(owner)
+		_, err := user.GetUser(ctx, owner)
 		if err != nil {
 			return err
 		}
 	}
 
-	var database = context.GetDatabase()
-
-	_, err := GetDeck(deck.Code, owner)
+	_, err := GetDeck(ctx, deck.Code, owner)
 	if !errors.Is(err, sdkErrors.ErrNoDeck) {
 		return sdkErrors.ErrDeckAlreadyExists
 	}
@@ -152,7 +144,7 @@ func NewDeck(deck *deckModel.Deck, owner string) error {
 		ModifiedDate: currentDate,
 	}
 
-	database.Insert("deck", &deck)
+	ctx.Database().Insert("deck", &deck)
 
 	return nil
 }
@@ -161,7 +153,7 @@ func NewDeck(deck *deckModel.Deck, owner string) error {
 GetBoardContents Return a slice of CardSet pointers representing a deck boards content. If the requested board
 does not exist, it will return ErrBoardNotExist
 */
-func GetBoardContents(contentIds *deckModel.DeckContentIds, board string) ([]*cardModel.CardSet, error) {
+func GetBoardContents(ctx *context.ServerContext, contentIds *deckModel.DeckContentIds, board string) ([]*cardModel.CardSet, error) {
 	var boardIds []string
 
 	if board == BoardMainboard {
@@ -174,21 +166,21 @@ func GetBoardContents(contentIds *deckModel.DeckContentIds, board string) ([]*ca
 		return nil, sdkErrors.ErrBoardNotExist
 	}
 
-	return card.GetCards(boardIds)
+	return card.GetCards(ctx, boardIds)
 }
 
 /*
 GetDeckContents Update the 'contents' field of the deck passed in the parameter. This accepts a
 pointer and updates this in place to avoid having to copy large amounts of data
 */
-func GetDeckContents(deck *deckModel.Deck) error {
+func GetDeckContents(ctx *context.ServerContext, deck *deckModel.Deck) error {
 	if deck.ContentIds == nil {
 		return sdkErrors.ErrDeckMissingId
 	}
 
-	mainBoardContents, _ := GetBoardContents(deck.ContentIds, BoardMainboard)
-	sideBoardContents, _ := GetBoardContents(deck.ContentIds, BoardSideboard)
-	commanderContents, _ := GetBoardContents(deck.ContentIds, BoardCommander)
+	mainBoardContents, _ := GetBoardContents(ctx, deck.ContentIds, BoardMainboard)
+	sideBoardContents, _ := GetBoardContents(ctx, deck.ContentIds, BoardSideboard)
+	commanderContents, _ := GetBoardContents(ctx, deck.ContentIds, BoardCommander)
 
 	contents := &deckModel.DeckContents{
 		MainBoard: mainBoardContents,
@@ -222,7 +214,7 @@ func AllCardIds(contents *deckModel.DeckContentIds) ([]string, error) {
 AddCards Update the content ids in the deck model passed with new cards. This should
 probably validate cards in the future
 */
-func AddCards(deck *deckModel.Deck, newCards *deckModel.DeckContentIds) error {
+func AddCards(ctx *context.ServerContext, deck *deckModel.Deck, newCards *deckModel.DeckContentIds) error {
 	if deck.ContentIds == nil {
 		return sdkErrors.ErrDeckMissingId
 	}
@@ -233,7 +225,7 @@ func AddCards(deck *deckModel.Deck, newCards *deckModel.DeckContentIds) error {
 
 	deck.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr() // need better error checking here
 
-	err := ReplaceDeck(deck)
+	err := ReplaceDeck(ctx, deck)
 	if err != nil {
 		return err
 	}
@@ -271,7 +263,7 @@ func RemoveCardsFromBoard(deck *deckModel.Deck, cards []string, board string) er
 /*
 RemoveCards Remove cards from the content ids in the deck model passed.
 */
-func RemoveCards(deck *deckModel.Deck, removeCards *deckModel.DeckContentIds) error {
+func RemoveCards(ctx *context.ServerContext, deck *deckModel.Deck, removeCards *deckModel.DeckContentIds) error {
 	if deck.ContentIds == nil {
 		return sdkErrors.ErrDeckMissingId
 	}
@@ -291,7 +283,7 @@ func RemoveCards(deck *deckModel.Deck, removeCards *deckModel.DeckContentIds) er
 		return err
 	}
 
-	err = ReplaceDeck(deck)
+	err = ReplaceDeck(ctx, deck)
 	if err != nil {
 		return err
 	}
