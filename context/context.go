@@ -61,10 +61,10 @@ func (ctx *ServerContext) WithLog(logPath string) {
 WithDatabase - Set the database instance for the server context. The database will be connected on calling this function
 */
 func (ctx *ServerContext) WithDatabase(ipAddress string, port int, username string, password string) {
-	database := &server.Database{}
+	database := server.NewDatabase(ipAddress, port, username, password)
 
 	viper.Set("mongo.uri", server.BuildDatabaseURI(ipAddress, port, username, password))
-	database.Connect(viper.GetString("mongo.uri"))
+	database.Connect()
 	ctx.database = database
 }
 
