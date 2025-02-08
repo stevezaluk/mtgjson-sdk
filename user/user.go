@@ -38,7 +38,7 @@ func validateEmail(email string) bool {
 /*
 GetUser Fetch a user based on their username. Returns ErrNoUser if the user cannot be found
 */
-func GetUser(email string) (*userModel.User, error) {
+func GetUser(ctx *mtgContext.ServerContext, email string) (*userModel.User, error) {
 	var result *userModel.User
 
 	if email == "" {
@@ -49,10 +49,8 @@ func GetUser(email string) (*userModel.User, error) {
 		return nil, sdkErrors.ErrInvalidEmail
 	}
 
-	var mongoDatabase = mtgContext.GetDatabase()
-
 	query := bson.M{"email": email}
-	err := mongoDatabase.Find("user", query, &result)
+	err := ctx.Database().Find("user", query, &result)
 	if !err {
 		return nil, sdkErrors.ErrNoUser
 	}
@@ -63,10 +61,9 @@ func GetUser(email string) (*userModel.User, error) {
 /*
 GetEmailFromToken Fetch a users email from an authentication token passed to them
 */
-func GetEmailFromToken(token string) (string, error) {
-	var authApi = mtgContext.GetAuthAPI()
+func GetEmailFromToken(ctx *mtgContext.ServerContext, token string) (string, error) {
 
-	userInfo, err := authApi.UserInfo(context.Background(), token)
+	userInfo, err := ctx.AuthAPI().UserInfo(context.Background(), token)
 	if err != nil {
 		return "", err
 	}
@@ -78,7 +75,7 @@ func GetEmailFromToken(token string) (string, error) {
 NewUser Insert the contents of a User model in the MongoDB database. Returns ErrUserMissingId if the Username, or Email is not present
 Returns ErrUserAlreadyExist if a user already exists under this username
 */
-func NewUser(user *userModel.User) error {
+func NewUser(ctx *mtgContext.ServerContext, user *userModel.User) error {
 	if user.Username == "" || user.Email == "" || user.Auth0Id == "" {
 		return sdkErrors.ErrUserMissingId
 	}
@@ -87,7 +84,7 @@ func NewUser(user *userModel.User) error {
 		return sdkErrors.ErrInvalidEmail
 	}
 
-	_, err := GetUser(user.Email)
+	_, err := GetUser(ctx, user.Email)
 	if !errors.Is(err, sdkErrors.ErrNoUser) {
 		return sdkErrors.ErrUserAlreadyExist
 	}
@@ -104,8 +101,7 @@ func NewUser(user *userModel.User) error {
 		user.OwnedDecks = []string{}
 	}
 
-	var mongoDatabase = mtgContext.GetDatabase()
-	mongoDatabase.Insert("user", &user)
+	ctx.Database().Insert("user", &user)
 
 	return nil
 }
@@ -114,12 +110,10 @@ func NewUser(user *userModel.User) error {
 IndexUsers List all users from the database, and return them in a slice. A limit can be provided to ensure that too many objects
 don't get returned
 */
-func IndexUsers(limit int64) ([]*user.User, error) {
+func IndexUsers(ctx *mtgContext.ServerContext, limit int64) ([]*user.User, error) {
 	var result []*user.User
 
-	var mongoDatabase = mtgContext.GetDatabase()
-
-	err := mongoDatabase.Index("user", limit, &result)
+	err := ctx.Database().Index("user", limit, &result)
 	if !err {
 		return nil, sdkErrors.ErrNoUser
 	}
@@ -131,15 +125,13 @@ func IndexUsers(limit int64) ([]*user.User, error) {
 DeleteUser Removes the requested users account from the MongoDB database. Does not remove there account from Auth0. Returns ErrUserMissingId if email is empty string,
 returns ErrInvalidEmail if the email address passed is not valid, returns ErrUserDeleteFailed if the DeletedCount is less than 1, and returns nil otherwise
 */
-func DeleteUser(email string) error {
-	_, err := GetUser(email)
+func DeleteUser(ctx *mtgContext.ServerContext, email string) error {
+	_, err := GetUser(ctx, email)
 	if err != nil {
 		return err
 	}
 
-	var mongoDatabase = mtgContext.GetDatabase()
-
-	_, valid := mongoDatabase.Delete("user", bson.M{"email": email})
+	_, valid := ctx.Database().Delete("user", bson.M{"email": email})
 	if !valid {
 		return sdkErrors.ErrUserDeleteFailed
 	}
@@ -150,7 +142,7 @@ func DeleteUser(email string) error {
 /*
 RegisterUser Register a new user with Auth0 and store there user model within the MongoDB database
 */
-func RegisterUser(username string, email string, password string) (*userModel.User, error) {
+func RegisterUser(ctx *mtgContext.ServerContext, username string, email string, password string) (*userModel.User, error) {
 	ret := &userModel.User{
 		Username: username,
 		Email:    email,
@@ -172,16 +164,14 @@ func RegisterUser(username string, email string, password string) (*userModel.Us
 		Email:      ret.Email,
 	}
 
-	authAPI := mtgContext.GetAuthAPI()
-
-	userResp, err := authAPI.Database.Signup(context.Background(), userData)
+	userResp, err := ctx.AuthAPI().Database.Signup(context.Background(), userData)
 	if err != nil {
 		return ret, sdkErrors.ErrFailedToRegisterUser
 	}
 
 	ret.Auth0Id = userResp.ID
 
-	err = NewUser(ret)
+	err = NewUser(ctx, ret)
 	if err != nil {
 		return ret, err
 	}
@@ -192,13 +182,11 @@ func RegisterUser(username string, email string, password string) (*userModel.Us
 /*
 LoginUser Log a user in with there email address and password and return back an oauth.TokenSet
 */
-func LoginUser(email string, password string) (*oauth.TokenSet, error) {
-	_, err := GetUser(email)
+func LoginUser(ctx *mtgContext.ServerContext, email string, password string) (*oauth.TokenSet, error) {
+	_, err := GetUser(ctx, email)
 	if err != nil {
 		return nil, err
 	}
-
-	authAPI := mtgContext.GetAuthAPI()
 
 	userData := oauth.LoginWithPasswordRequest{
 		Username: email,
@@ -209,7 +197,7 @@ func LoginUser(email string, password string) (*oauth.TokenSet, error) {
 
 	validateOpts := oauth.IDTokenValidationOptions{}
 
-	token, err := authAPI.OAuth.LoginWithPassword(
+	token, err := ctx.AuthAPI().OAuth.LoginWithPassword(
 		context.Background(),
 		userData,
 		validateOpts,
@@ -225,22 +213,20 @@ func LoginUser(email string, password string) (*oauth.TokenSet, error) {
 /*
 DeactivateUser Completely removes the requested user account, both from Auth0 and from MongoDB
 */
-func DeactivateUser(email string) error {
-	user, err := GetUser(email)
+func DeactivateUser(ctx *mtgContext.ServerContext, email string) error {
+	user, err := GetUser(ctx, email)
 	if err != nil {
 		return err
 	}
 
-	err = DeleteUser(email)
+	err = DeleteUser(ctx, email)
 	if err != nil {
 		return err
 	}
-
-	var managementAPI = mtgContext.GetAuthManagementAPI()
 
 	userId := "auth0|" + user.Auth0Id
 
-	err = managementAPI.User.Delete(context.TODO(), userId)
+	err = ctx.AuthManagementAPI().User.Delete(context.TODO(), userId)
 	if err != nil {
 		return err
 	}
@@ -251,20 +237,18 @@ func DeactivateUser(email string) error {
 /*
 ResetUserPassword Send a reset password email to a specified user account.
 */
-func ResetUserPassword(email string) error {
-	_, err := GetUser(email)
+func ResetUserPassword(ctx *mtgContext.ServerContext, email string) error {
+	_, err := GetUser(ctx, email)
 	if err != nil {
 		return err
 	}
-
-	var authAPI = mtgContext.GetAuthAPI()
 
 	resetPwdRequest := database.ChangePasswordRequest{
 		Email:      email,
 		Connection: "Username-Password-Authentication",
 	}
 
-	_, err = authAPI.Database.ChangePassword(
+	_, err = ctx.AuthAPI().Database.ChangePassword(
 		context.Background(),
 		resetPwdRequest,
 	)
