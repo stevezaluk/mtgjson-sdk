@@ -18,9 +18,10 @@ import (
 ReplaceSet Replace the entire set in the database with the model passed in the parameter.
 Returns ErrSetUpdateFailed if the set cannot be located
 */
-func ReplaceSet(ctx *context.ServerContext, set *set.Set) error {
+func ReplaceSet(set *set.Set) error {
+	var database = context.GetDatabase()
 
-	_, err := ctx.Database().Replace("set", bson.M{"code": set.Code}, &set)
+	_, err := database.Replace("set", bson.M{"code": set.Code}, &set)
 	if !err {
 		return sdkErrors.ErrSetUpdateFailed
 	}
@@ -32,15 +33,16 @@ func ReplaceSet(ctx *context.ServerContext, set *set.Set) error {
 GetSet Takes a single string representing a set code and returns a set model for the set.
 Returns ErrNoSet if the set does not exist, or cannot be located
 */
-func GetSet(ctx *context.ServerContext, code string, owner string) (*set.Set, error) {
+func GetSet(code string, owner string) (*set.Set, error) {
 	var ret *set.Set
+	var database = context.GetDatabase()
 
 	query := bson.M{"code": code}
 	if owner != "" {
 		query = bson.M{"code": code, "mtgjsonApiMeta.owner": owner}
 	}
 
-	err := ctx.Database().Find("set", query, &ret)
+	err := database.Find("set", query, &ret)
 	if !err {
 		return ret, sdkErrors.ErrNoSet
 	}
@@ -54,7 +56,7 @@ valid name and set code, additionally the set cannot already exist under the sam
 the email address of the owner you want to assign the deck to. If the string is empty (i.e. == ""), it
 will be assigned to the system user
 */
-func NewSet(ctx *context.ServerContext, set *set.Set, owner string) error {
+func NewSet(set *set.Set, owner string) error {
 	if set.Name == "" || set.Code == "" {
 		return sdkErrors.ErrSetMissingId
 	}
@@ -64,13 +66,15 @@ func NewSet(ctx *context.ServerContext, set *set.Set, owner string) error {
 	}
 
 	if owner != user.SystemUser {
-		_, err := user.GetUser(ctx, owner)
+		_, err := user.GetUser(owner)
 		if err != nil {
 			return err
 		}
 	}
 
-	_, err := GetSet(ctx, set.Code, owner)
+	var database = context.GetDatabase()
+
+	_, err := GetSet(set.Code, owner)
 	if !errors.Is(err, sdkErrors.ErrNoSet) {
 		return sdkErrors.ErrSetAlreadyExists
 	}
@@ -91,7 +95,7 @@ func NewSet(ctx *context.ServerContext, set *set.Set, owner string) error {
 		ModifiedDate: currentDate,
 	}
 
-	ctx.Database().Insert("set", &set)
+	database.Insert("set", &set)
 
 	return nil
 }
@@ -101,7 +105,7 @@ AddCards Update the contentIds in the set model passed with new cards.
 This should probably perform card validation in the future. This should also be updated
 to allow multiples of cards to be added
 */
-func AddCards(ctx *context.ServerContext, set *set.Set, newCards []string) error {
+func AddCards(set *set.Set, newCards []string) error {
 	if newCards == nil || len(newCards) == 0 {
 		return nil // no new cards to add. returning nil here to not consume a database call
 	}
@@ -114,7 +118,7 @@ func AddCards(ctx *context.ServerContext, set *set.Set, newCards []string) error
 
 	set.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr() // need better error checking here
 
-	err := ReplaceSet(ctx, set)
+	err := ReplaceSet(set)
 	if err != nil {
 		return err
 	}
@@ -126,7 +130,7 @@ func AddCards(ctx *context.ServerContext, set *set.Set, newCards []string) error
 RemoveCards Update the contentIds in the set model with the cards to be removed in the
 cards array. This should be updated to support removing multiples of one card at a time
 */
-func RemoveCards(ctx *context.ServerContext, set *set.Set, cards []string) error {
+func RemoveCards(set *set.Set, cards []string) error {
 	if cards == nil || len(cards) == 0 {
 		return nil // no new cards to add. returning nil here to not consume a database call
 	}
@@ -145,7 +149,7 @@ func RemoveCards(ctx *context.ServerContext, set *set.Set, cards []string) error
 
 	set.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr()
 
-	err := ReplaceSet(ctx, set)
+	err := ReplaceSet(set)
 	if err != nil {
 		return err
 	}
@@ -158,12 +162,12 @@ GetSetContents Update the contents field of the set passed in the parameter usin
 function. Consumes a single database call. If the contentIds field is nil or has a length of 0,
 it will return nil and abort the call
 */
-func GetSetContents(ctx *context.ServerContext, set *set.Set) error {
+func GetSetContents(set *set.Set) error {
 	if set.ContentIds == nil || len(set.ContentIds) == 0 {
 		return nil // returning nil here to not consume a database call
 	}
 
-	contents, err := card.GetCards(ctx, set.ContentIds)
+	contents, err := card.GetCards(set.ContentIds)
 	if err != nil {
 		return err
 	}
@@ -178,14 +182,15 @@ DeleteSet Remove a set from the MongoDB database using the code passed in the pa
 Returns ErrNoSet if the set does not exist. Returns ErrSetDeleteFailed if the deleted count
 does not equal 1
 */
-func DeleteSet(ctx *context.ServerContext, code string, owner string) error {
+func DeleteSet(code string, owner string) error {
+	var database = context.GetDatabase()
 
 	query := bson.M{"code": code}
 	if owner != "" {
 		query = bson.M{"code": code, "mtgjsonApiMeta.owner": owner}
 	}
 
-	result, err := ctx.Database().Delete("set", query)
+	result, err := database.Delete("set", query)
 	if !err {
 		return sdkErrors.ErrNoSet
 	}
@@ -202,10 +207,11 @@ func DeleteSet(ctx *context.ServerContext, code string, owner string) error {
 IndexSets Returns all sets in the database unmarshalled as card models. The limit parameter
 will be passed directly to the database query to limit the number of models returned
 */
-func IndexSets(ctx *context.ServerContext, limit int64) ([]*set.Set, error) {
+func IndexSets(limit int64) ([]*set.Set, error) {
 	var ret []*set.Set
+	var database = context.GetDatabase()
 
-	err := ctx.Database().Index("set", limit, ret)
+	err := database.Index("set", limit, ret)
 	if !err {
 		return ret, sdkErrors.ErrNoSet
 	}

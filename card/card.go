@@ -40,11 +40,11 @@ func ValidateUUID(uuid string) bool {
 ValidateCards Takes a list of strings representing MTGJSONv4 UUID's and ensures that they are both
 valid and exist. Returns 3 variables: an error, and two lists of strings.
 */
-func ValidateCards(ctx *context.ServerContext, uuids []string) (error, []string, []string) {
+func ValidateCards(uuids []string) (error, []string, []string) {
 	var invalidCards []string // cards that failed UUID validation
 	var noExistCards []string // cards that do not exist in Mongo
 
-	cards, err := GetCards(ctx, uuids)
+	cards, err := GetCards(uuids)
 	if err != nil {
 		return err, invalidCards, noExistCards
 	}
@@ -87,10 +87,12 @@ func ExtractCardIds(cards []*card.CardSet) []string {
 GetCards Takes a list of strings representing MTGJSONv4 UUID's and returns a list of card models
 representing them. Change this to process all cards in a single database call
 */
-func GetCards(ctx *context.ServerContext, cards []string) ([]*card.CardSet, error) {
+func GetCards(cards []string) ([]*card.CardSet, error) {
 	var ret []*card.CardSet
 
-	err := ctx.Database().FindMultiple("card", "identifiers.mtgjsonV4Id", cards, &ret)
+	var database = context.GetDatabase()
+
+	err := database.FindMultiple("card", "identifiers.mtgjsonV4Id", cards, &ret)
 	if !err {
 		return nil, sdkErrors.ErrNoCards
 	}
@@ -102,19 +104,21 @@ func GetCards(ctx *context.ServerContext, cards []string) ([]*card.CardSet, erro
 GetCard Takes a single string representing an MTGJSONv4 UUID and return a card model
 for it
 */
-func GetCard(ctx *context.ServerContext, uuid string, owner string) (*card.CardSet, error) {
+func GetCard(uuid string, owner string) (*card.CardSet, error) {
 	var result card.CardSet
 
 	if !ValidateUUID(uuid) {
 		return &result, sdkErrors.ErrInvalidUUID
 	}
 
+	var database = context.GetDatabase()
+
 	query := bson.M{"identifiers.mtgjsonV4Id": uuid}
 	if owner != "" {
 		query = bson.M{"identifiers.mtgjsonV4Id": uuid, "mtgjsonApiMeta.owner": owner}
 	}
 
-	err := ctx.Database().Find("card", query, &result)
+	err := database.Find("card", query, &result)
 	if !err {
 		return nil, sdkErrors.ErrNoCard
 	}
@@ -126,7 +130,7 @@ func GetCard(ctx *context.ServerContext, uuid string, owner string) (*card.CardS
 NewCard Insert a new card in the form of a model into the MongoDB database. The card model must have a
 valid name and MTGJSONv4 ID, additionally, the card cannot already exist under the same ID
 */
-func NewCard(ctx *context.ServerContext, card *card.CardSet, owner string) error {
+func NewCard(card *card.CardSet, owner string) error {
 	if card.Identifiers == nil {
 		return sdkErrors.ErrCardMissingId
 	}
@@ -141,13 +145,13 @@ func NewCard(ctx *context.ServerContext, card *card.CardSet, owner string) error
 	}
 
 	if owner != user.SystemUser {
-		_, err := user.GetUser(ctx, owner)
+		_, err := user.GetUser(owner)
 		if err != nil {
 			return err
 		}
 	}
 
-	_, err := GetCard(ctx, cardId, owner)
+	_, err := GetCard(cardId, owner)
 	if !errors.Is(err, sdkErrors.ErrNoCard) {
 		return sdkErrors.ErrCardAlreadyExist
 	}
@@ -196,7 +200,8 @@ func NewCard(ctx *context.ServerContext, card *card.CardSet, owner string) error
 		ModifiedDate: currentDate,
 	}
 
-	ctx.Database().Insert("card", &card)
+	var database = context.GetDatabase()
+	database.Insert("card", &card)
 
 	return nil
 }
@@ -206,13 +211,14 @@ DeleteCard Remove a card from the MongoDB database. The UUID passed in the param
 ErrNoCard will be returned if no card exists under the passed UUID, and ErrCardDeleteFailed will be returned
 if the deleted count does not equal 1
 */
-func DeleteCard(ctx *context.ServerContext, uuid string, owner string) error {
+func DeleteCard(uuid string, owner string) error {
+	var database = context.GetDatabase()
 
 	query := bson.M{"identifiers.mtgjsonV4Id": uuid}
 	if owner != "" {
 		query = bson.M{"identifiers.mtgjsonV4Id": uuid, "mtgjsonApiMeta.owner": owner}
 	}
-	result, err := ctx.Database().Delete("card", query)
+	result, err := database.Delete("card", query)
 	if !err {
 		return sdkErrors.ErrNoCard
 	}
@@ -228,10 +234,12 @@ func DeleteCard(ctx *context.ServerContext, uuid string, owner string) error {
 IndexCards Returns all cards in the database unmarshalled as card models. The limit parameter
 will be passed directly to the database query to limit the number of models returned
 */
-func IndexCards(ctx *context.ServerContext, limit int64) ([]*card.CardSet, error) {
+func IndexCards(limit int64) ([]*card.CardSet, error) {
 	var result []*card.CardSet
 
-	err := ctx.Database().Index("card", limit, &result)
+	var database = context.GetDatabase()
+
+	err := database.Index("card", limit, &result)
 	if !err {
 		return nil, sdkErrors.ErrNoCards
 	}
