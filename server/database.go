@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"github.com/spf13/viper"
 	"log/slog"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -15,6 +17,12 @@ Database An abstraction of an active mongodb database connection. The same conne
 all SDK operations to ensure that we don't exceed the connection pool limit
 */
 type Database struct {
+	// options - A structure containing options used for connecting the MongoDB Client
+	options *options.ClientOptions
+
+	// defaultDatabase - The default database that MongoDB should connect to
+	defaultDatabase string
+
 	// Client - A pointer to the MongoDB client that facilitates a connection to the database
 	Client *mongo.Client
 
@@ -23,47 +31,84 @@ type Database struct {
 }
 
 /*
-Connect to the MongoDB instance defined in the Database object
+NewDatabase - Instantiate a new database object. Does not connect automatically, this needs to be
+done with Database.Connect()
 */
-func (d *Database) Connect(uri string) {
-	opts := options.Client()
+func NewDatabase(hostname string, port int, defaultDatabase string) *Database {
+	hosts := hostname + ":" + strconv.Itoa(port)
 
-	opts.ApplyURI(uri)
+	clientOpts := options.Client().
+		SetHosts([]string{hosts}).
+		SetDirect(true).
+		SetServerSelectionTimeout(30 * time.Second).
+		SetTimeout(30 * time.Second)
 
-	slog.Info("Connecting to mongoDB")
-	client, err := mongo.Connect(context.TODO(), opts)
-	if err != nil {
-		slog.Error("Failed to connect to MongoDB", "uri", uri)
-		panic(1) // panic here as this is a fatal error
+	return &Database{
+		options:         clientOpts,
+		defaultDatabase: defaultDatabase,
+	}
+}
+
+/*
+NewDatabaseFromConfig - Instantiate a new database from viper config values
+*/
+func NewDatabaseFromConfig() *Database {
+	database := NewDatabase(
+		viper.GetString("mongo.ip"),
+		viper.GetInt("mongo.port"),
+		viper.GetString("mongo.default_database"))
+
+	database.SetSCRAMAuthentication(
+		viper.GetString("mongo.user"),
+		viper.GetString("mongo.pass"))
+
+	return database
+}
+
+/*
+SetSCRAMAuthentication - Set the credentials for the database if they are needed
+*/
+func (d *Database) SetSCRAMAuthentication(username string, password string) {
+	credentials := options.Credential{
+		AuthMechanism: "SCRAM-SHA-256",
+		AuthSource:    "admin",
+		Username:      username,
+		Password:      password,
 	}
 
-	d.Database = client.Database("mtgjson")
+	d.options.SetAuth(credentials)
+}
+
+/*
+Connect to the MongoDB instance defined in the Database object
+*/
+func (d *Database) Connect(uri string) error {
+	client, err := mongo.Connect(context.Background(), d.options)
+	if err != nil {
+		return err
+	}
+
+	err = client.Ping(context.Background(), nil)
+	if err != nil {
+		return err
+	}
+
 	d.Client = client
+	d.Database = client.Database(d.defaultDatabase)
+
+	return nil
 }
 
 /*
 Disconnect Gracefully disconnect from your active MongoDB connection
 */
-func (d *Database) Disconnect() {
-	d.Health() // this will throw a fatal error when
-
-	slog.Info("Disconnecting from MongoDB")
+func (d *Database) Disconnect() error {
 	err := d.Client.Disconnect(context.Background())
 	if err != nil {
-		slog.Error("Failed to disconnect from MongoDB", "err", err.Error())
-		panic(1)
+		return err
 	}
-}
 
-/*
-Health Ping the MongoDB database and panic if we don't get a response
-*/
-func (d *Database) Health() {
-	err := d.Client.Ping(context.TODO(), nil)
-	if err != nil {
-		slog.Error("Failed to ping MongoDB for health", "err", err.Error())
-		panic(1)
-	}
+	return nil
 }
 
 /*
