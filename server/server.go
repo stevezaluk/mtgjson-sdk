@@ -25,3 +25,10 @@ func FromConfig() *Server {
 		NewDatabaseFromConfig(), // this is not connecting to the database here
 	)
 }
+
+/*
+Database - Returns a pointer to the currently used Database object for the server
+*/
+func (server *Server) Database() *Database {
+	return server.database
+}
