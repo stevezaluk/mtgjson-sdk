@@ -289,10 +289,3 @@ func (d *Database) IncrementField(collection string, query bson.M, fields bson.M
 	return results, true
 
 }
-
-/*
-BuildDatabaseURI Build a MongoDB connection URI using the values that are stored within our database object
-*/
-func BuildDatabaseURI(ipAddress string, port int, username string, password string) string {
-	return "mongodb://" + username + ":" + password + "@" + ipAddress + ":" + strconv.Itoa(port)
-}
