@@ -15,7 +15,10 @@ Database An abstraction of an active mongodb database connection. The same conne
 all SDK operations to ensure that we don't exceed the connection pool limit
 */
 type Database struct {
-	Client   *mongo.Client
+	// Client - A pointer to the MongoDB client that facilitates a connection to the database
+	Client *mongo.Client
+
+	// Database - A pointer to the MongoDB database that the API interacts with
 	Database *mongo.Database
 }
 
