@@ -54,13 +54,13 @@ NewDatabaseFromConfig - Instantiate a new database from viper config values
 */
 func NewDatabaseFromConfig() *Database {
 	database := NewDatabase(
-		viper.GetString("mongo.ip"),
+		viper.GetString("mongo.hostname"),
 		viper.GetInt("mongo.port"),
 		viper.GetString("mongo.default_database"))
 
 	database.SetSCRAMAuthentication(
-		viper.GetString("mongo.user"),
-		viper.GetString("mongo.pass"))
+		viper.GetString("mongo.username"),
+		viper.GetString("mongo.password"))
 
 	return database
 }
