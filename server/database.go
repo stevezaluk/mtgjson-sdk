@@ -82,7 +82,7 @@ func (d *Database) SetSCRAMAuthentication(username string, password string) {
 /*
 Connect to the MongoDB instance defined in the Database object
 */
-func (d *Database) Connect(uri string) error {
+func (d *Database) Connect() error {
 	client, err := mongo.Connect(context.Background(), d.options)
 	if err != nil {
 		return err
