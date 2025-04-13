@@ -26,29 +26,20 @@ type Log struct {
 NewLogger - Instantiate a new logger object. The 'path' parameter should
 be the UNIX path of where you want logs saved to
 */
-func NewLogger(path string) (*Log, error) {
+func NewLogger(path string) *Log {
 	log := &Log{
 		logPath: path,
 	}
 
-	err := log.init()
-	if err != nil {
-		return nil, err
-	}
-
-	return log, nil
+	log.init()
+	return log
 }
 
 /*
 NewLoggerFromConfig - Instantiate a new logger using flags from viper
 */
-func NewLoggerFromConfig() (*Log, error) {
-	log, err := NewLogger(viper.GetString("log.path"))
-	if err != nil {
-		return nil, err
-	}
-
-	return log, nil
+func NewLoggerFromConfig() *Log {
+	return NewLogger(viper.GetString("log.path"))
 }
 
 /*
@@ -59,9 +50,9 @@ func (log *Log) Path() string {
 }
 
 /*
-init - Initializes the internally stored logger field and sets it as the default logger
+openFile - Creates a new log file in the Log.logPath directory
 */
-func (log *Log) init() error {
+func (log *Log) openFile() error {
 	timestamp := time.Now().Format(time.RFC3339Nano)
 
 	filename := log.logPath + "/" + "api-" + timestamp + ".json"
@@ -71,13 +62,34 @@ func (log *Log) init() error {
 	}
 
 	log.logFile = file
+
+	return nil
+}
+
+/*
+init - Initializes the internally stored logger field and sets it as the default logger
+*/
+func (log *Log) init() {
+	var stdoutOnly bool
+
+	err := log.openFile()
+	if err != nil {
+		stdoutOnly = true
+	}
+
 	handler := slogmulti.Fanout(
-		slog.NewJSONHandler(file, nil),
 		slog.NewTextHandler(os.Stdout, nil))
+
+	if !stdoutOnly {
+		handler = slogmulti.Fanout(
+			slog.NewJSONHandler(os.Stdout, nil),
+			slog.NewTextHandler(os.Stdout, nil))
+	}
 
 	log.logger = slog.New(handler)
 	slog.SetDefault(log.logger)
 
-	return nil
-
+	if stdoutOnly {
+		slog.Warn("An error occurred while opening the log file. Only STDOUT logging will be used", "err", err.Error())
+	}
 }
