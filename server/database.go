@@ -23,11 +23,11 @@ type Database struct {
 	// defaultDatabase - The default database that MongoDB should connect to
 	defaultDatabase string
 
-	// Client - A pointer to the MongoDB client that facilitates a connection to the database
-	Client *mongo.Client
+	// client - A pointer to the MongoDB client that facilitates a connection to the database
+	client *mongo.Client
 
-	// Database - A pointer to the MongoDB database that the API interacts with
-	Database *mongo.Database
+	// database - A pointer to the MongoDB database that the API interacts with
+	database *mongo.Database
 }
 
 /*
@@ -66,6 +66,20 @@ func NewDatabaseFromConfig() *Database {
 }
 
 /*
+Database - Return a pointer to the underlying mongo.Database structure
+*/
+func (database *Database) Database() *mongo.Database {
+	return database.database
+}
+
+/*
+Client - Return a pointer to the underlying mongo.Client structure
+*/
+func (database *Database) Client() *mongo.Client {
+	return database.client
+}
+
+/*
 SetSCRAMAuthentication - Set the credentials for the database if they are needed
 */
 func (database *Database) SetSCRAMAuthentication(username string, password string) {
@@ -93,8 +107,8 @@ func (database *Database) Connect() error {
 		return err
 	}
 
-	database.Client = client
-	database.Database = client.Database(database.defaultDatabase)
+	database.client = client
+	database.database = client.Database(database.defaultDatabase)
 
 	return nil
 }
@@ -103,7 +117,7 @@ func (database *Database) Connect() error {
 Disconnect Gracefully disconnect from your active MongoDB connection
 */
 func (database *Database) Disconnect() error {
-	err := database.Client.Disconnect(context.Background())
+	err := database.Client().Disconnect(context.Background())
 	if err != nil {
 		return err
 	}
@@ -116,7 +130,7 @@ Find a single document from the MongoDB instance and unmarshal it into the inter
 passed in the 'model' parameter
 */
 func (database *Database) Find(collection string, query bson.M, model interface{}) bool {
-	coll := database.Database.Collection(collection)
+	coll := database.Database().Collection(collection)
 
 	slog.Debug("FindOne Query", "collection", collection, "query", query)
 	err := coll.FindOne(context.TODO(), query).Decode(model)
@@ -132,7 +146,7 @@ func (database *Database) Find(collection string, query bson.M, model interface{
 FindMultiple - Find multiple documents from within a collection
 */
 func (database *Database) FindMultiple(collection string, key string, value []string, model interface{}) bool {
-	coll := database.Database.Collection(collection)
+	coll := database.Database().Collection(collection)
 
 	slog.Debug("FindMultiple Query", "collection", collection, "key", key, "value", value)
 	query := bson.M{key: bson.M{"$in": value}}
@@ -156,7 +170,7 @@ Replace a single document from the MongoDB instance and unmarshal it into the in
 passed in the 'model' parameter
 */
 func (database *Database) Replace(collection string, query bson.M, model interface{}) (*mongo.UpdateResult, bool) {
-	coll := database.Database.Collection(collection)
+	coll := database.Database().Collection(collection)
 
 	slog.Debug("ReplaceOne Query", "collection", collection, "query", query)
 	result, err := coll.ReplaceOne(context.TODO(), query, model)
@@ -171,7 +185,7 @@ func (database *Database) Replace(collection string, query bson.M, model interfa
 Delete a single document from the MongoDB instance
 */
 func (database *Database) Delete(collection string, query bson.M) (*mongo.DeleteResult, bool) {
-	coll := database.Database.Collection(collection)
+	coll := database.Database().Collection(collection)
 
 	slog.Debug("DeleteOne Query", "collection", collection, "query", query)
 	result, err := coll.DeleteOne(context.TODO(), query)
@@ -192,7 +206,7 @@ Insert the interface represented in the 'model' parameter into the MongoDB
 instance
 */
 func (database *Database) Insert(collection string, model interface{}) (*mongo.InsertOneResult, bool) {
-	coll := database.Database.Collection(collection)
+	coll := database.Database().Collection(collection)
 
 	slog.Debug("InsertOne Query", "collection", collection)
 	result, err := coll.InsertOne(context.TODO(), model)
@@ -210,7 +224,7 @@ in the 'model' parameter
 */
 func (database *Database) Index(collection string, limit int64, model interface{}) bool {
 	opts := options.Find().SetLimit(limit)
-	coll := database.Database.Collection(collection)
+	coll := database.Database().Collection(collection)
 
 	slog.Debug("Index Collection Query", "collection", collection)
 	cur, err := coll.Find(context.TODO(), bson.M{}, opts)
@@ -232,7 +246,7 @@ func (database *Database) Index(collection string, limit int64, model interface{
 SetField Update a single field in a requested document in the Mongo Database
 */
 func (database *Database) SetField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
-	coll := database.Database.Collection(collection)
+	coll := database.Database().Collection(collection)
 
 	slog.Debug("SetField Query", "collection", collection, "query", query, "fields", fields)
 	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$set": fields})
@@ -248,7 +262,7 @@ func (database *Database) SetField(collection string, query bson.M, fields bson.
 AppendField Append an item to a field in a single document in the Mongo Database
 */
 func (database *Database) AppendField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
-	coll := database.Database.Collection(collection)
+	coll := database.Database().Collection(collection)
 
 	slog.Debug("AppendField Query", "collection", collection, "query", query, "fields", fields)
 	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$push": fields})
@@ -264,7 +278,7 @@ func (database *Database) AppendField(collection string, query bson.M, fields bs
 PullField Remove all instances of an object from an array in a single document
 */
 func (database *Database) PullField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
-	coll := database.Database.Collection(collection)
+	coll := database.Database().Collection(collection)
 
 	slog.Debug("PullField Query", "collection", collection, "query", query, "fields", fields)
 	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$pull": fields})
@@ -280,7 +294,7 @@ func (database *Database) PullField(collection string, query bson.M, fields bson
 IncrementField Increment a single field in a document
 */
 func (database *Database) IncrementField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
-	coll := database.Database.Collection(collection)
+	coll := database.Database().Collection(collection)
 
 	slog.Debug("IncrementField Query", "collection", collection, "query", query, "fields", fields)
 	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$inc": fields})
