@@ -64,7 +64,7 @@ func NewSet(database *server.Database, set *set.Set, owner string) error {
 	}
 
 	if owner != user.SystemUser {
-		_, err := user.GetUser(owner)
+		_, err := user.GetUser(database, owner)
 		if err != nil {
 			return err
 		}

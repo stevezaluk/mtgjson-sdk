@@ -111,7 +111,7 @@ func NewDeck(database *server.Database, deck *deckModel.Deck, owner string) erro
 	}
 
 	if owner != user.SystemUser {
-		_, err := user.GetUser(owner)
+		_, err := user.GetUser(database, owner)
 		if err != nil {
 			return err
 		}
