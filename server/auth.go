@@ -81,6 +81,19 @@ func (auth *AuthenticationManager) SetScope(scope string) {
 }
 
 /*
+GetEmailFromToken - Calls the /userinfo OIDC endpoint and return the users email address
+*/
+func (auth *AuthenticationManager) GetEmailFromToken(token string) (string, error) {
+	userInfo, err := auth.auth.UserInfo(context.Background(), token)
+	if err != nil {
+		return "", err
+	}
+
+	return userInfo.Email, nil
+
+}
+
+/*
 AuthenticateUser - Fetch a token on the users behalf using there credentials
 */
 func (auth *AuthenticationManager) AuthenticateUser(username string, password string) (*oauth.TokenSet, error) {
