@@ -50,6 +50,13 @@ func (log *Log) Path() string {
 }
 
 /*
+Logger - Returns a pointer to the slog.Logger object stored in Log
+*/
+func (log *Log) Logger() *slog.Logger {
+	return log.logger
+}
+
+/*
 openFile - Creates a new log file in the Log.logPath directory
 */
 func (log *Log) openFile() error {
