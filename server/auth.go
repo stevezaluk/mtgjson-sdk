@@ -8,6 +8,12 @@ import (
 )
 
 type AuthenticationManager struct {
+	// audience - The audience of your Auth0 API
+	audience string
+
+	// domain - The Auth0 domain of your tenant
+	domain string
+
 	// auth - Used for authenticating users with the API
 	auth *authentication.Authentication
 
@@ -18,7 +24,7 @@ type AuthenticationManager struct {
 /*
 NewAuthenticationManager - Instantiates a new AuthenticationManager structure
 */
-func NewAuthenticationManager(domain string, clientId string, clientSecret string) (*AuthenticationManager, error) {
+func NewAuthenticationManager(domain string, audience string, clientId string, clientSecret string) (*AuthenticationManager, error) {
 	authAPI, err := authentication.New(
 		context.Background(),
 		domain,
@@ -37,7 +43,11 @@ func NewAuthenticationManager(domain string, clientId string, clientSecret strin
 		return nil, err
 	}
 
-	return &AuthenticationManager{auth: authAPI, management: managementAPI}, nil
+	return &AuthenticationManager{
+		audience:   audience,
+		domain:     domain,
+		auth:       authAPI,
+		management: managementAPI}, nil
 }
 
 /*
@@ -46,6 +56,7 @@ NewAuthenticationManagerFromConfig - Instantiates a new AuthenticationManager us
 func NewAuthenticationManagerFromConfig() (*AuthenticationManager, error) {
 	auth, err := NewAuthenticationManager(
 		viper.GetString("auth0.domain"),
+		viper.GetString("auth0.audience"),
 		viper.GetString("auth0.client_id"),
 		viper.GetString("auth0.client_secret"))
 	if err != nil {
