@@ -74,6 +74,20 @@ func NewAuthenticationManagerFromConfig() (*AuthenticationManager, error) {
 }
 
 /*
+AuthAPI - Returns a pointer to the Auth0 Authentication API struct
+*/
+func (auth *AuthenticationManager) AuthAPI() *authentication.Authentication {
+	return auth.auth
+}
+
+/*
+ManagementAPI - Returns a pointer to the Auth0 Management API struct
+*/
+func (auth *AuthenticationManager) ManagementAPI() *management.Management {
+	return auth.management
+}
+
+/*
 SetScope - Set the scopes that the API should recognize
 */
 func (auth *AuthenticationManager) SetScope(scope string) {
