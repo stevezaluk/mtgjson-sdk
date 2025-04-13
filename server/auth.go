@@ -68,7 +68,16 @@ func NewAuthenticationManagerFromConfig() (*AuthenticationManager, error) {
 		return nil, err
 	}
 
+	auth.SetScope(viper.GetString("auth0.scope"))
+
 	return auth, nil
+}
+
+/*
+SetScope - Set the scopes that the API should recognize
+*/
+func (auth *AuthenticationManager) SetScope(scope string) {
+	auth.scope = scope
 }
 
 /*
