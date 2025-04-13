@@ -93,3 +93,19 @@ func (log *Log) init() {
 		slog.Warn("An error occurred while opening the log file. Only STDOUT logging will be used", "err", err.Error())
 	}
 }
+
+/*
+CloseFile - Close the open log file, if it has been set
+*/
+func (log *Log) CloseFile() error {
+	if log.logFile == nil {
+		return nil
+	}
+
+	err := log.logFile.Close()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
