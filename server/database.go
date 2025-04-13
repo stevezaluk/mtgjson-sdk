@@ -68,7 +68,7 @@ func NewDatabaseFromConfig() *Database {
 /*
 SetSCRAMAuthentication - Set the credentials for the database if they are needed
 */
-func (d *Database) SetSCRAMAuthentication(username string, password string) {
+func (database *Database) SetSCRAMAuthentication(username string, password string) {
 	credentials := options.Credential{
 		AuthMechanism: "SCRAM-SHA-256",
 		AuthSource:    "admin",
@@ -76,14 +76,14 @@ func (d *Database) SetSCRAMAuthentication(username string, password string) {
 		Password:      password,
 	}
 
-	d.options.SetAuth(credentials)
+	database.options.SetAuth(credentials)
 }
 
 /*
 Connect to the MongoDB instance defined in the Database object
 */
-func (d *Database) Connect() error {
-	client, err := mongo.Connect(context.Background(), d.options)
+func (database *Database) Connect() error {
+	client, err := mongo.Connect(context.Background(), database.options)
 	if err != nil {
 		return err
 	}
@@ -93,8 +93,8 @@ func (d *Database) Connect() error {
 		return err
 	}
 
-	d.Client = client
-	d.Database = client.Database(d.defaultDatabase)
+	database.Client = client
+	database.Database = client.Database(database.defaultDatabase)
 
 	return nil
 }
@@ -102,8 +102,8 @@ func (d *Database) Connect() error {
 /*
 Disconnect Gracefully disconnect from your active MongoDB connection
 */
-func (d *Database) Disconnect() error {
-	err := d.Client.Disconnect(context.Background())
+func (database *Database) Disconnect() error {
+	err := database.Client.Disconnect(context.Background())
 	if err != nil {
 		return err
 	}
@@ -115,8 +115,8 @@ func (d *Database) Disconnect() error {
 Find a single document from the MongoDB instance and unmarshal it into the interface
 passed in the 'model' parameter
 */
-func (d *Database) Find(collection string, query bson.M, model interface{}) bool {
-	coll := d.Database.Collection(collection)
+func (database *Database) Find(collection string, query bson.M, model interface{}) bool {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("FindOne Query", "collection", collection, "query", query)
 	err := coll.FindOne(context.TODO(), query).Decode(model)
@@ -131,8 +131,8 @@ func (d *Database) Find(collection string, query bson.M, model interface{}) bool
 /*
 FindMultiple - Find multiple documents from within a collection
 */
-func (d *Database) FindMultiple(collection string, key string, value []string, model interface{}) bool {
-	coll := d.Database.Collection(collection)
+func (database *Database) FindMultiple(collection string, key string, value []string, model interface{}) bool {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("FindMultiple Query", "collection", collection, "key", key, "value", value)
 	query := bson.M{key: bson.M{"$in": value}}
@@ -155,8 +155,8 @@ func (d *Database) FindMultiple(collection string, key string, value []string, m
 Replace a single document from the MongoDB instance and unmarshal it into the interface
 passed in the 'model' parameter
 */
-func (d *Database) Replace(collection string, query bson.M, model interface{}) (*mongo.UpdateResult, bool) {
-	coll := d.Database.Collection(collection)
+func (database *Database) Replace(collection string, query bson.M, model interface{}) (*mongo.UpdateResult, bool) {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("ReplaceOne Query", "collection", collection, "query", query)
 	result, err := coll.ReplaceOne(context.TODO(), query, model)
@@ -170,8 +170,8 @@ func (d *Database) Replace(collection string, query bson.M, model interface{}) (
 /*
 Delete a single document from the MongoDB instance
 */
-func (d *Database) Delete(collection string, query bson.M) (*mongo.DeleteResult, bool) {
-	coll := d.Database.Collection(collection)
+func (database *Database) Delete(collection string, query bson.M) (*mongo.DeleteResult, bool) {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("DeleteOne Query", "collection", collection, "query", query)
 	result, err := coll.DeleteOne(context.TODO(), query)
@@ -191,8 +191,8 @@ func (d *Database) Delete(collection string, query bson.M) (*mongo.DeleteResult,
 Insert the interface represented in the 'model' parameter into the MongoDB
 instance
 */
-func (d *Database) Insert(collection string, model interface{}) (*mongo.InsertOneResult, bool) {
-	coll := d.Database.Collection(collection)
+func (database *Database) Insert(collection string, model interface{}) (*mongo.InsertOneResult, bool) {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("InsertOne Query", "collection", collection)
 	result, err := coll.InsertOne(context.TODO(), model)
@@ -208,9 +208,9 @@ func (d *Database) Insert(collection string, model interface{}) (*mongo.InsertOn
 Index Return all documents in a collection and unmarshal them into the interface passed
 in the 'model' parameter
 */
-func (d *Database) Index(collection string, limit int64, model interface{}) bool {
+func (database *Database) Index(collection string, limit int64, model interface{}) bool {
 	opts := options.Find().SetLimit(limit)
-	coll := d.Database.Collection(collection)
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("Index Collection Query", "collection", collection)
 	cur, err := coll.Find(context.TODO(), bson.M{}, opts)
@@ -231,8 +231,8 @@ func (d *Database) Index(collection string, limit int64, model interface{}) bool
 /*
 SetField Update a single field in a requested document in the Mongo Database
 */
-func (d *Database) SetField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
-	coll := d.Database.Collection(collection)
+func (database *Database) SetField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("SetField Query", "collection", collection, "query", query, "fields", fields)
 	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$set": fields})
@@ -247,8 +247,8 @@ func (d *Database) SetField(collection string, query bson.M, fields bson.M) (*mo
 /*
 AppendField Append an item to a field in a single document in the Mongo Database
 */
-func (d *Database) AppendField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
-	coll := d.Database.Collection(collection)
+func (database *Database) AppendField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("AppendField Query", "collection", collection, "query", query, "fields", fields)
 	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$push": fields})
@@ -263,8 +263,8 @@ func (d *Database) AppendField(collection string, query bson.M, fields bson.M) (
 /*
 PullField Remove all instances of an object from an array in a single document
 */
-func (d *Database) PullField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
-	coll := d.Database.Collection(collection)
+func (database *Database) PullField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("PullField Query", "collection", collection, "query", query, "fields", fields)
 	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$pull": fields})
@@ -279,8 +279,8 @@ func (d *Database) PullField(collection string, query bson.M, fields bson.M) (*m
 /*
 IncrementField Increment a single field in a document
 */
-func (d *Database) IncrementField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
-	coll := d.Database.Collection(collection)
+func (database *Database) IncrementField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("IncrementField Query", "collection", collection, "query", query, "fields", fields)
 	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$inc": fields})
