@@ -3,7 +3,7 @@ package card
 import (
 	"errors"
 	"github.com/stevezaluk/mtgjson-models/meta"
-	"github.com/stevezaluk/mtgjson-sdk/context"
+	"github.com/stevezaluk/mtgjson-sdk/server"
 	"github.com/stevezaluk/mtgjson-sdk/user"
 	"github.com/stevezaluk/mtgjson-sdk/util"
 	"regexp"
@@ -40,11 +40,11 @@ func ValidateUUID(uuid string) bool {
 ValidateCards Takes a list of strings representing MTGJSONv4 UUID's and ensures that they are both
 valid and exist. Returns 3 variables: an error, and two lists of strings.
 */
-func ValidateCards(uuids []string) (error, []string, []string) {
+func ValidateCards(database *server.Database, uuids []string) (error, []string, []string) {
 	var invalidCards []string // cards that failed UUID validation
 	var noExistCards []string // cards that do not exist in Mongo
 
-	cards, err := GetCards(uuids)
+	cards, err := GetCards(database, uuids)
 	if err != nil {
 		return err, invalidCards, noExistCards
 	}
@@ -87,10 +87,8 @@ func ExtractCardIds(cards []*card.CardSet) []string {
 GetCards Takes a list of strings representing MTGJSONv4 UUID's and returns a list of card models
 representing them. Change this to process all cards in a single database call
 */
-func GetCards(cards []string) ([]*card.CardSet, error) {
+func GetCards(database *server.Database, cards []string) ([]*card.CardSet, error) {
 	var ret []*card.CardSet
-
-	var database = context.GetDatabase()
 
 	err := database.FindMultiple("card", "identifiers.mtgjsonV4Id", cards, &ret)
 	if !err {
@@ -104,14 +102,12 @@ func GetCards(cards []string) ([]*card.CardSet, error) {
 GetCard Takes a single string representing an MTGJSONv4 UUID and return a card model
 for it
 */
-func GetCard(uuid string, owner string) (*card.CardSet, error) {
+func GetCard(database *server.Database, uuid string, owner string) (*card.CardSet, error) {
 	var result card.CardSet
 
 	if !ValidateUUID(uuid) {
 		return &result, sdkErrors.ErrInvalidUUID
 	}
-
-	var database = context.GetDatabase()
 
 	query := bson.M{"identifiers.mtgjsonV4Id": uuid}
 	if owner != "" {
@@ -130,7 +126,7 @@ func GetCard(uuid string, owner string) (*card.CardSet, error) {
 NewCard Insert a new card in the form of a model into the MongoDB database. The card model must have a
 valid name and MTGJSONv4 ID, additionally, the card cannot already exist under the same ID
 */
-func NewCard(card *card.CardSet, owner string) error {
+func NewCard(database *server.Database, card *card.CardSet, owner string) error {
 	if card.Identifiers == nil {
 		return sdkErrors.ErrCardMissingId
 	}
@@ -151,7 +147,7 @@ func NewCard(card *card.CardSet, owner string) error {
 		}
 	}
 
-	_, err := GetCard(cardId, owner)
+	_, err := GetCard(database, cardId, owner)
 	if !errors.Is(err, sdkErrors.ErrNoCard) {
 		return sdkErrors.ErrCardAlreadyExist
 	}
@@ -200,7 +196,6 @@ func NewCard(card *card.CardSet, owner string) error {
 		ModifiedDate: currentDate,
 	}
 
-	var database = context.GetDatabase()
 	database.Insert("card", &card)
 
 	return nil
@@ -211,9 +206,7 @@ DeleteCard Remove a card from the MongoDB database. The UUID passed in the param
 ErrNoCard will be returned if no card exists under the passed UUID, and ErrCardDeleteFailed will be returned
 if the deleted count does not equal 1
 */
-func DeleteCard(uuid string, owner string) error {
-	var database = context.GetDatabase()
-
+func DeleteCard(database *server.Database, uuid string, owner string) error {
 	query := bson.M{"identifiers.mtgjsonV4Id": uuid}
 	if owner != "" {
 		query = bson.M{"identifiers.mtgjsonV4Id": uuid, "mtgjsonApiMeta.owner": owner}
@@ -234,10 +227,8 @@ func DeleteCard(uuid string, owner string) error {
 IndexCards Returns all cards in the database unmarshalled as card models. The limit parameter
 will be passed directly to the database query to limit the number of models returned
 */
-func IndexCards(limit int64) ([]*card.CardSet, error) {
+func IndexCards(database *server.Database, limit int64) ([]*card.CardSet, error) {
 	var result []*card.CardSet
-
-	var database = context.GetDatabase()
 
 	err := database.Index("card", limit, &result)
 	if !err {

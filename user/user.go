@@ -7,10 +7,8 @@ import (
 
 	sdkErrors "github.com/stevezaluk/mtgjson-models/errors"
 	userModel "github.com/stevezaluk/mtgjson-models/user"
-	mtgContext "github.com/stevezaluk/mtgjson-sdk/context"
+	"github.com/stevezaluk/mtgjson-sdk/server"
 	"go.mongodb.org/mongo-driver/bson"
-
-	"context"
 )
 
 const (
@@ -35,7 +33,7 @@ func validateEmail(email string) bool {
 /*
 GetUser Fetch a user based on their username. Returns ErrNoUser if the user cannot be found
 */
-func GetUser(email string) (*userModel.User, error) {
+func GetUser(database *server.Database, email string) (*userModel.User, error) {
 	var result *userModel.User
 
 	if email == "" {
@@ -46,10 +44,8 @@ func GetUser(email string) (*userModel.User, error) {
 		return nil, sdkErrors.ErrInvalidEmail
 	}
 
-	var mongoDatabase = mtgContext.GetDatabase()
-
 	query := bson.M{"email": email}
-	err := mongoDatabase.Find("user", query, &result)
+	err := database.Find("user", query, &result)
 	if !err {
 		return nil, sdkErrors.ErrNoUser
 	}
@@ -58,24 +54,10 @@ func GetUser(email string) (*userModel.User, error) {
 }
 
 /*
-GetEmailFromToken Fetch a users email from an authentication token passed to them
-*/
-func GetEmailFromToken(token string) (string, error) {
-	var authApi = mtgContext.GetAuthAPI()
-
-	userInfo, err := authApi.UserInfo(context.Background(), token)
-	if err != nil {
-		return "", err
-	}
-
-	return userInfo.Email, nil
-}
-
-/*
 NewUser Insert the contents of a User model in the MongoDB database. Returns ErrUserMissingId if the Username, or Email is not present
 Returns ErrUserAlreadyExist if a user already exists under this username
 */
-func NewUser(user *userModel.User) error {
+func NewUser(database *server.Database, user *userModel.User) error {
 	if user.Username == "" || user.Email == "" || user.Auth0Id == "" {
 		return sdkErrors.ErrUserMissingId
 	}
@@ -84,7 +66,7 @@ func NewUser(user *userModel.User) error {
 		return sdkErrors.ErrInvalidEmail
 	}
 
-	_, err := GetUser(user.Email)
+	_, err := GetUser(database, user.Email)
 	if !errors.Is(err, sdkErrors.ErrNoUser) {
 		return sdkErrors.ErrUserAlreadyExist
 	}
@@ -101,8 +83,7 @@ func NewUser(user *userModel.User) error {
 		user.OwnedDecks = []string{}
 	}
 
-	var mongoDatabase = mtgContext.GetDatabase()
-	mongoDatabase.Insert("user", &user)
+	database.Insert("user", &user)
 
 	return nil
 }
@@ -111,12 +92,10 @@ func NewUser(user *userModel.User) error {
 IndexUsers List all users from the database, and return them in a slice. A limit can be provided to ensure that too many objects
 don't get returned
 */
-func IndexUsers(limit int64) ([]*user.User, error) {
+func IndexUsers(database *server.Database, limit int64) ([]*user.User, error) {
 	var result []*user.User
 
-	var mongoDatabase = mtgContext.GetDatabase()
-
-	err := mongoDatabase.Index("user", limit, &result)
+	err := database.Index("user", limit, &result)
 	if !err {
 		return nil, sdkErrors.ErrNoUser
 	}
@@ -128,15 +107,13 @@ func IndexUsers(limit int64) ([]*user.User, error) {
 DeleteUser Removes the requested users account from the MongoDB database. Does not remove there account from Auth0. Returns ErrUserMissingId if email is empty string,
 returns ErrInvalidEmail if the email address passed is not valid, returns ErrUserDeleteFailed if the DeletedCount is less than 1, and returns nil otherwise
 */
-func DeleteUser(email string) error {
-	_, err := GetUser(email)
+func DeleteUser(database *server.Database, email string) error {
+	_, err := GetUser(database, email)
 	if err != nil {
 		return err
 	}
 
-	var mongoDatabase = mtgContext.GetDatabase()
-
-	_, valid := mongoDatabase.Delete("user", bson.M{"email": email})
+	_, valid := database.Delete("user", bson.M{"email": email})
 	if !valid {
 		return sdkErrors.ErrUserDeleteFailed
 	}
