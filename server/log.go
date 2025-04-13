@@ -52,6 +52,13 @@ func NewLoggerFromConfig() (*Log, error) {
 }
 
 /*
+Path - Return the path that the Log is currently saving files to
+*/
+func (log *Log) Path() string {
+	return log.logPath
+}
+
+/*
 init - Initializes the internally stored logger field and sets it as the default logger
 */
 func (log *Log) init() error {
