@@ -128,6 +128,9 @@ func (d *Database) Find(collection string, query bson.M, model interface{}) bool
 	return true
 }
 
+/*
+FindMultiple - Find multiple documents from within a collection
+*/
 func (d *Database) FindMultiple(collection string, key string, value []string, model interface{}) bool {
 	coll := d.Database.Collection(collection)
 
