@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"github.com/spf13/viper"
 	"log/slog"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -15,60 +17,106 @@ Database An abstraction of an active mongodb database connection. The same conne
 all SDK operations to ensure that we don't exceed the connection pool limit
 */
 type Database struct {
-	Client   *mongo.Client
+	// options - A structure containing options used for connecting the MongoDB Client
+	options *options.ClientOptions
+
+	// defaultDatabase - The default database that MongoDB should connect to
+	defaultDatabase string
+
+	// Client - A pointer to the MongoDB client that facilitates a connection to the database
+	Client *mongo.Client
+
+	// Database - A pointer to the MongoDB database that the API interacts with
 	Database *mongo.Database
+}
+
+/*
+NewDatabase - Instantiate a new database object. Does not connect automatically, this needs to be
+done with Database.Connect()
+*/
+func NewDatabase(hostname string, port int, defaultDatabase string) *Database {
+	hosts := hostname + ":" + strconv.Itoa(port)
+
+	clientOpts := options.Client().
+		SetHosts([]string{hosts}).
+		SetDirect(true).
+		SetServerSelectionTimeout(30 * time.Second).
+		SetTimeout(30 * time.Second)
+
+	return &Database{
+		options:         clientOpts,
+		defaultDatabase: defaultDatabase,
+	}
+}
+
+/*
+NewDatabaseFromConfig - Instantiate a new database from viper config values
+*/
+func NewDatabaseFromConfig() *Database {
+	database := NewDatabase(
+		viper.GetString("mongo.hostname"),
+		viper.GetInt("mongo.port"),
+		viper.GetString("mongo.default_database"))
+
+	database.SetSCRAMAuthentication(
+		viper.GetString("mongo.username"),
+		viper.GetString("mongo.password"))
+
+	return database
+}
+
+/*
+SetSCRAMAuthentication - Set the credentials for the database if they are needed
+*/
+func (database *Database) SetSCRAMAuthentication(username string, password string) {
+	credentials := options.Credential{
+		AuthMechanism: "SCRAM-SHA-256",
+		AuthSource:    "admin",
+		Username:      username,
+		Password:      password,
+	}
+
+	database.options.SetAuth(credentials)
 }
 
 /*
 Connect to the MongoDB instance defined in the Database object
 */
-func (d *Database) Connect(uri string) {
-	opts := options.Client()
-
-	opts.ApplyURI(uri)
-
-	slog.Info("Connecting to mongoDB")
-	client, err := mongo.Connect(context.TODO(), opts)
+func (database *Database) Connect() error {
+	client, err := mongo.Connect(context.Background(), database.options)
 	if err != nil {
-		slog.Error("Failed to connect to MongoDB", "uri", uri)
-		panic(1) // panic here as this is a fatal error
+		return err
 	}
 
-	d.Database = client.Database("mtgjson")
-	d.Client = client
+	err = client.Ping(context.Background(), nil)
+	if err != nil {
+		return err
+	}
+
+	database.Client = client
+	database.Database = client.Database(database.defaultDatabase)
+
+	return nil
 }
 
 /*
 Disconnect Gracefully disconnect from your active MongoDB connection
 */
-func (d *Database) Disconnect() {
-	d.Health() // this will throw a fatal error when
-
-	slog.Info("Disconnecting from MongoDB")
-	err := d.Client.Disconnect(context.Background())
+func (database *Database) Disconnect() error {
+	err := database.Client.Disconnect(context.Background())
 	if err != nil {
-		slog.Error("Failed to disconnect from MongoDB", "err", err.Error())
-		panic(1)
+		return err
 	}
-}
 
-/*
-Health Ping the MongoDB database and panic if we don't get a response
-*/
-func (d *Database) Health() {
-	err := d.Client.Ping(context.TODO(), nil)
-	if err != nil {
-		slog.Error("Failed to ping MongoDB for health", "err", err.Error())
-		panic(1)
-	}
+	return nil
 }
 
 /*
 Find a single document from the MongoDB instance and unmarshal it into the interface
 passed in the 'model' parameter
 */
-func (d *Database) Find(collection string, query bson.M, model interface{}) bool {
-	coll := d.Database.Collection(collection)
+func (database *Database) Find(collection string, query bson.M, model interface{}) bool {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("FindOne Query", "collection", collection, "query", query)
 	err := coll.FindOne(context.TODO(), query).Decode(model)
@@ -80,8 +128,11 @@ func (d *Database) Find(collection string, query bson.M, model interface{}) bool
 	return true
 }
 
-func (d *Database) FindMultiple(collection string, key string, value []string, model interface{}) bool {
-	coll := d.Database.Collection(collection)
+/*
+FindMultiple - Find multiple documents from within a collection
+*/
+func (database *Database) FindMultiple(collection string, key string, value []string, model interface{}) bool {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("FindMultiple Query", "collection", collection, "key", key, "value", value)
 	query := bson.M{key: bson.M{"$in": value}}
@@ -104,8 +155,8 @@ func (d *Database) FindMultiple(collection string, key string, value []string, m
 Replace a single document from the MongoDB instance and unmarshal it into the interface
 passed in the 'model' parameter
 */
-func (d *Database) Replace(collection string, query bson.M, model interface{}) (*mongo.UpdateResult, bool) {
-	coll := d.Database.Collection(collection)
+func (database *Database) Replace(collection string, query bson.M, model interface{}) (*mongo.UpdateResult, bool) {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("ReplaceOne Query", "collection", collection, "query", query)
 	result, err := coll.ReplaceOne(context.TODO(), query, model)
@@ -119,8 +170,8 @@ func (d *Database) Replace(collection string, query bson.M, model interface{}) (
 /*
 Delete a single document from the MongoDB instance
 */
-func (d *Database) Delete(collection string, query bson.M) (*mongo.DeleteResult, bool) {
-	coll := d.Database.Collection(collection)
+func (database *Database) Delete(collection string, query bson.M) (*mongo.DeleteResult, bool) {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("DeleteOne Query", "collection", collection, "query", query)
 	result, err := coll.DeleteOne(context.TODO(), query)
@@ -140,8 +191,8 @@ func (d *Database) Delete(collection string, query bson.M) (*mongo.DeleteResult,
 Insert the interface represented in the 'model' parameter into the MongoDB
 instance
 */
-func (d *Database) Insert(collection string, model interface{}) (*mongo.InsertOneResult, bool) {
-	coll := d.Database.Collection(collection)
+func (database *Database) Insert(collection string, model interface{}) (*mongo.InsertOneResult, bool) {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("InsertOne Query", "collection", collection)
 	result, err := coll.InsertOne(context.TODO(), model)
@@ -157,9 +208,9 @@ func (d *Database) Insert(collection string, model interface{}) (*mongo.InsertOn
 Index Return all documents in a collection and unmarshal them into the interface passed
 in the 'model' parameter
 */
-func (d *Database) Index(collection string, limit int64, model interface{}) bool {
+func (database *Database) Index(collection string, limit int64, model interface{}) bool {
 	opts := options.Find().SetLimit(limit)
-	coll := d.Database.Collection(collection)
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("Index Collection Query", "collection", collection)
 	cur, err := coll.Find(context.TODO(), bson.M{}, opts)
@@ -180,8 +231,8 @@ func (d *Database) Index(collection string, limit int64, model interface{}) bool
 /*
 SetField Update a single field in a requested document in the Mongo Database
 */
-func (d *Database) SetField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
-	coll := d.Database.Collection(collection)
+func (database *Database) SetField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("SetField Query", "collection", collection, "query", query, "fields", fields)
 	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$set": fields})
@@ -196,8 +247,8 @@ func (d *Database) SetField(collection string, query bson.M, fields bson.M) (*mo
 /*
 AppendField Append an item to a field in a single document in the Mongo Database
 */
-func (d *Database) AppendField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
-	coll := d.Database.Collection(collection)
+func (database *Database) AppendField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("AppendField Query", "collection", collection, "query", query, "fields", fields)
 	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$push": fields})
@@ -212,8 +263,8 @@ func (d *Database) AppendField(collection string, query bson.M, fields bson.M) (
 /*
 PullField Remove all instances of an object from an array in a single document
 */
-func (d *Database) PullField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
-	coll := d.Database.Collection(collection)
+func (database *Database) PullField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("PullField Query", "collection", collection, "query", query, "fields", fields)
 	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$pull": fields})
@@ -228,8 +279,8 @@ func (d *Database) PullField(collection string, query bson.M, fields bson.M) (*m
 /*
 IncrementField Increment a single field in a document
 */
-func (d *Database) IncrementField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
-	coll := d.Database.Collection(collection)
+func (database *Database) IncrementField(collection string, query bson.M, fields bson.M) (*mongo.UpdateResult, bool) {
+	coll := database.Database.Collection(collection)
 
 	slog.Debug("IncrementField Query", "collection", collection, "query", query, "fields", fields)
 	results, err := coll.UpdateOne(context.TODO(), query, bson.M{"$inc": fields})
@@ -240,11 +291,4 @@ func (d *Database) IncrementField(collection string, query bson.M, fields bson.M
 
 	return results, true
 
-}
-
-/*
-BuildDatabaseURI Build a MongoDB connection URI using the values that are stored within our database object
-*/
-func BuildDatabaseURI(ipAddress string, port int, username string, password string) string {
-	return "mongodb://" + username + ":" + password + "@" + ipAddress + ":" + strconv.Itoa(port)
 }
