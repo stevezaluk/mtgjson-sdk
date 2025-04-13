@@ -10,6 +10,9 @@ type Server struct {
 
 	// log - A pointer to the current log structure
 	log *Log
+
+	// authenticationManager - Provides logic for interacting with Auth0
+	authenticationManager *AuthenticationManager
 }
 
 /*
@@ -44,4 +47,18 @@ Log - Returns a pointer to the currently used Log object for the server
 */
 func (server *Server) Log() *Log {
 	return server.log
+}
+
+/*
+AuthenticationManager - Returns a pointer to the AuthenticationManager for the server
+*/
+func (server *Server) AuthenticationManager() *AuthenticationManager {
+	return server.authenticationManager
+}
+
+/*
+SetAuthManager - Set the auth manager for the Server
+*/
+func (server *Server) SetAuthManager(auth *AuthenticationManager) {
+	server.authenticationManager = auth
 }
