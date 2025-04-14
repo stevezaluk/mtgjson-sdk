@@ -18,21 +18,27 @@ type Server struct {
 /*
 New - Basic constructor for the Server structure
 */
-func New(database *Database, log *Log) *Server {
+func New(database *Database, log *Log, authenticationManager *AuthenticationManager) *Server {
 	return &Server{
-		database: database,
-		log:      log,
+		database:              database,
+		log:                   log,
+		authenticationManager: authenticationManager,
 	}
 }
 
 /*
 FromConfig - Initializes a new server object using config values from viper
 */
-func FromConfig() *Server {
+func FromConfig() (*Server, error) {
+	authManager, err := NewAuthenticationManagerFromConfig()
+	if err != nil {
+		return nil, err
+	}
 	return New(
 		NewDatabaseFromConfig(), // this is not connecting to the database here
 		NewLoggerFromConfig(),
-	)
+		authManager,
+	), nil
 }
 
 /*
