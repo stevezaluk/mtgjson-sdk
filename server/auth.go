@@ -169,8 +169,8 @@ func (auth *AuthenticationManager) ResetUserPassword(email string) error {
 /*
 DeactivateUser - Delete a user from Auth0. This does not remove the user from mtgjson-api, only Auth0
 */
-func (auth *AuthenticationManager) DeactivateUser(email string) error {
-	err := auth.management.User.Delete(context.Background(), email)
+func (auth *AuthenticationManager) DeactivateUser(auth0Id string) error {
+	err := auth.management.User.Delete(context.Background(), auth0Id)
 	if err != nil {
 		return err
 	}
