@@ -89,7 +89,7 @@ func (log *Log) init() {
 
 	if !stdoutOnly {
 		handler = slogmulti.Fanout(
-			slog.NewJSONHandler(os.Stdout, nil),
+			slog.NewJSONHandler(log.logFile, nil),
 			slog.NewTextHandler(os.Stdout, nil))
 	}
 
