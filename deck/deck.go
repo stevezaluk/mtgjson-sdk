@@ -2,14 +2,10 @@ package deck
 
 import (
 	"errors"
-	cardModel "github.com/stevezaluk/mtgjson-models/card"
 	"github.com/stevezaluk/mtgjson-models/meta"
-	"github.com/stevezaluk/mtgjson-sdk/card"
 	"github.com/stevezaluk/mtgjson-sdk/server"
 	"github.com/stevezaluk/mtgjson-sdk/user"
 	"github.com/stevezaluk/mtgjson-sdk/util"
-
-	"slices"
 
 	deckModel "github.com/stevezaluk/mtgjson-models/deck"
 	sdkErrors "github.com/stevezaluk/mtgjson-models/errors"
@@ -122,12 +118,16 @@ func NewDeck(database *server.Database, deck *deckModel.Deck, owner string) erro
 		return sdkErrors.ErrDeckAlreadyExists
 	}
 
-	if deck.ContentIds == nil {
-		deck.ContentIds = &deckModel.DeckContentIds{
-			MainBoard: []string{},
-			SideBoard: []string{},
-			Commander: []string{},
-		}
+	if deck.Commander == nil {
+		deck.Commander = []*deckModel.DeckContent{}
+	}
+
+	if deck.MainBoard == nil {
+		deck.MainBoard = []*deckModel.DeckContent{}
+	}
+
+	if deck.SideBoard == nil {
+		deck.SideBoard = []*deckModel.DeckContent{}
 	}
 
 	currentDate := util.CreateTimestampStr()
