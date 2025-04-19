@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"github.com/spf13/viper"
 	"log/slog"
 	"time"
@@ -163,6 +164,26 @@ func (database *Database) FindMultiple(collection string, key string, value []st
 	}
 
 	return true
+}
+
+/*
+Exists - Runs a light weight FindOne query on a collection and returns true or false
+if the document exists.
+*/
+func (database *Database) Exists(collection string, query bson.M) (bool, error) {
+	coll := database.Database().Collection(collection)
+
+	slog.Debug("Exists Query", "collection", collection, "query", query)
+	err := coll.FindOne(context.Background(), query, options.FindOne().SetProjection(bson.M{"_id": 1})).Decode(bson.M{})
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return false, nil
+		} else {
+			return false, err
+		}
+	}
+
+	return true, nil
 }
 
 /*
