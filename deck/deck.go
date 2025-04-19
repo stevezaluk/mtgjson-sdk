@@ -146,3 +146,66 @@ func NewDeck(database *server.Database, deck *deckModel.Deck, owner string) erro
 
 	return nil
 }
+
+/*
+GetDeckBoard - Return a copy of the requested board from the deck
+*/
+func GetDeckBoard(deck *deckModel.Deck, board string) (map[string]int64, error) {
+	var sourceBoard map[string]int64
+
+	if board == BoardMainboard {
+		sourceBoard = deck.MainBoard
+	} else if board == BoardSideboard {
+		sourceBoard = deck.SideBoard
+	} else if board == BoardCommander {
+		sourceBoard = deck.Commander
+	} else {
+		return nil, sdkErrors.ErrBoardNotExist
+	}
+
+	return sourceBoard, nil
+}
+
+/*
+AddCards - Add cards to a deck within the database. Deck must have a Deck Code associated with it or it will
+error out
+*/
+func AddCards(database *server.Database, deck *deckModel.Deck, board string, contents map[string]int64) error {
+	if deck.Code == "" {
+		return sdkErrors.ErrDeckMissingId
+	}
+
+	sourceBoard, err := GetDeckBoard(deck, board)
+	if err != nil {
+		return err
+	}
+
+	for id, quantity := range contents {
+		check := sourceBoard[id]
+		if check != 0 { // item exists
+			sourceBoard[id] = check + quantity
+		} else {
+			sourceBoard[id] = quantity
+		}
+	}
+
+	if board == BoardMainboard {
+		deck.MainBoard = sourceBoard
+	}
+
+	if board == BoardSideboard {
+		deck.SideBoard = sourceBoard
+	}
+
+	if board == BoardCommander {
+		deck.Commander = sourceBoard
+	}
+
+	// this is really inefficent and should be changed
+	err = ReplaceDeck(database, deck)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
