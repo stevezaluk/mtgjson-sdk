@@ -22,6 +22,27 @@ const (
 )
 
 /*
+GetDeck Fetch a deck from the MongoDB database using the code passed in the parameter. Owner
+is the email address of the user that you want to assign to the deck. If the string is empty
+then it does not filter by user. Returns ErrNoDeck if the deck does not exist or cannot be located
+*/
+func GetDeck(database *server.Database, code string, owner string) (*deckModel.Deck, error) {
+	var result *deckModel.Deck
+
+	query := bson.M{"code": code}
+	if owner != "" {
+		query = bson.M{"code": code, "mtgjsonApiMeta.owner": owner}
+	}
+
+	err := database.Find("deck", query, &result)
+	if !err {
+		return result, sdkErrors.ErrNoDeck
+	}
+
+	return result, nil
+}
+
+/*
 ReplaceDeck Replace the entire deck in the database with the deck model
 passed in the parameter. Returns ErrDeckUpdateFailed if the deck
 cannot be located
@@ -56,27 +77,6 @@ func DeleteDeck(database *server.Database, code string, owner string) error {
 	}
 
 	return nil
-}
-
-/*
-GetDeck Fetch a deck from the MongoDB database using the code passed in the parameter. Owner
-is the email address of the user that you want to assign to the deck. If the string is empty
-then it does not filter by user. Returns ErrNoDeck if the deck does not exist or cannot be located
-*/
-func GetDeck(database *server.Database, code string, owner string) (*deckModel.Deck, error) {
-	var result *deckModel.Deck
-
-	query := bson.M{"code": code}
-	if owner != "" {
-		query = bson.M{"code": code, "mtgjsonApiMeta.owner": owner}
-	}
-
-	err := database.Find("deck", query, &result)
-	if !err {
-		return result, sdkErrors.ErrNoDeck
-	}
-
-	return result, nil
 }
 
 /*
