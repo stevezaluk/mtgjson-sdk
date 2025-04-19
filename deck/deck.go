@@ -118,12 +118,16 @@ func NewDeck(database *server.Database, deck *deckModel.Deck, owner string) erro
 		return sdkErrors.ErrDeckAlreadyExists
 	}
 
-	if deck.Contents == nil {
-		deck.Contents = &deckModel.DeckContents{
-			Commander: []*deckModel.DeckContentEntry{},
-			MainBoard: []*deckModel.DeckContentEntry{},
-			SideBoard: []*deckModel.DeckContentEntry{},
-		}
+	if deck.MainBoard == nil {
+		deck.MainBoard = map[string]int64{}
+	}
+
+	if deck.SideBoard == nil {
+		deck.SideBoard = map[string]int64{}
+	}
+
+	if deck.Commander == nil {
+		deck.Commander = map[string]int64{}
 	}
 
 	currentDate := util.CreateTimestampStr()
