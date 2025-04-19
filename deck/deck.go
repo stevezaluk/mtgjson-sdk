@@ -231,7 +231,7 @@ func GetDeckBoard(deck *deckModel.Deck, board string) (map[string]int64, error) 
 
 /*
 AddCards - Add cards to a deck within the database. Deck must have a Deck Code associated with it or it will
-error out
+error out. Does not validate cards
 */
 func AddCards(database *server.Database, deck *deckModel.Deck, board string, contents map[string]int64) error {
 	if deck.Code == "" {
@@ -273,6 +273,9 @@ func AddCards(database *server.Database, deck *deckModel.Deck, board string, con
 	return nil
 }
 
+/*
+RemoveCards - Remove cards from a specified board. Does not validate cards
+*/
 func RemoveCards(database *server.Database, deck *deckModel.Deck, board string, contents map[string]int64) error {
 	if deck.Code == "" {
 		return sdkErrors.ErrDeckMissingId
