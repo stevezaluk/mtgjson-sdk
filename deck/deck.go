@@ -2,13 +2,12 @@ package deck
 
 import (
 	"errors"
-	cardModel "github.com/stevezaluk/mtgjson-models/card"
 	"github.com/stevezaluk/mtgjson-models/meta"
 	"github.com/stevezaluk/mtgjson-sdk/card"
 	"github.com/stevezaluk/mtgjson-sdk/server"
 	"github.com/stevezaluk/mtgjson-sdk/user"
 	"github.com/stevezaluk/mtgjson-sdk/util"
-
+	"maps"
 	"slices"
 
 	deckModel "github.com/stevezaluk/mtgjson-models/deck"
@@ -122,12 +121,16 @@ func NewDeck(database *server.Database, deck *deckModel.Deck, owner string) erro
 		return sdkErrors.ErrDeckAlreadyExists
 	}
 
-	if deck.ContentIds == nil {
-		deck.ContentIds = &deckModel.DeckContentIds{
-			MainBoard: []string{},
-			SideBoard: []string{},
-			Commander: []string{},
-		}
+	if deck.MainBoard == nil {
+		deck.MainBoard = map[string]int64{}
+	}
+
+	if deck.SideBoard == nil {
+		deck.SideBoard = map[string]int64{}
+	}
+
+	if deck.Commander == nil {
+		deck.Commander = map[string]int64{}
 	}
 
 	currentDate := util.CreateTimestampStr()
@@ -148,139 +151,165 @@ func NewDeck(database *server.Database, deck *deckModel.Deck, owner string) erro
 }
 
 /*
-GetBoardContents Return a slice of CardSet pointers representing a deck boards content. If the requested board
-does not exist, it will return ErrBoardNotExist
+GetDeckContents - Iterates through all the boards in a deck and fetches the card models for each of the cards.
+First all the cardID's across all of the boards are appended to a single list and a single database call is
+consumed to fetch them down. Then they are iterated over and each board is checked for the ID, if it is found
+then it is added its respective board as a deckModel.DeckContentEntry structure
 */
-func GetBoardContents(database *server.Database, contentIds *deckModel.DeckContentIds, board string) ([]*cardModel.CardSet, error) {
-	var boardIds []string
-
-	if board == BoardMainboard {
-		boardIds = contentIds.MainBoard
-	} else if board == BoardSideboard {
-		boardIds = contentIds.SideBoard
-	} else if board == BoardCommander {
-		boardIds = contentIds.Commander
-	} else {
-		return nil, sdkErrors.ErrBoardNotExist
+func GetDeckContents(database *server.Database, deck *deckModel.Deck) (*deckModel.DeckContents, error) {
+	if deck.MtgjsonApiMeta == nil {
+		return nil, sdkErrors.ErrDeckMissingId
 	}
 
-	return card.GetCards(database, boardIds)
-}
-
-/*
-GetDeckContents Update the 'contents' field of the deck passed in the parameter. This accepts a
-pointer and updates this in place to avoid having to copy large amounts of data
-*/
-func GetDeckContents(database *server.Database, deck *deckModel.Deck) error {
-	if deck.ContentIds == nil {
-		return sdkErrors.ErrDeckMissingId
+	if deck.Code == "" || deck.MtgjsonApiMeta.Owner == "" {
+		return nil, sdkErrors.ErrDeckMissingId
 	}
 
-	mainBoardContents, _ := GetBoardContents(database, deck.ContentIds, BoardMainboard)
-	sideBoardContents, _ := GetBoardContents(database, deck.ContentIds, BoardSideboard)
-	commanderContents, _ := GetBoardContents(database, deck.ContentIds, BoardCommander)
-
-	contents := &deckModel.DeckContents{
-		MainBoard: mainBoardContents,
-		SideBoard: sideBoardContents,
-		Commander: commanderContents,
+	ret := &deckModel.DeckContents{
+		MainBoard: map[string]*deckModel.DeckContentEntry{},
+		SideBoard: map[string]*deckModel.DeckContentEntry{},
+		Commander: map[string]*deckModel.DeckContentEntry{},
 	}
 
-	deck.Contents = contents
+	allIds := append(slices.Collect(maps.Keys(deck.MainBoard)), slices.Collect(maps.Keys(deck.SideBoard))...)
+	allIds = append(allIds, slices.Collect(maps.Keys(deck.Commander))...)
 
-	return nil
-}
-
-/*
-AllCardIds Helper function to combine all card id's in a deck into a single slice of strings
-*/
-func AllCardIds(contents *deckModel.DeckContentIds) ([]string, error) {
-	var ret []string
-
-	if contents == nil {
-		return ret, sdkErrors.ErrDeckMissingId
+	allCards, err := card.GetCards(database, allIds)
+	if err != nil {
+		return nil, err
 	}
 
-	ret = append(ret, contents.MainBoard...)
-	ret = append(ret, contents.SideBoard...)
-	ret = append(ret, contents.Commander...)
+	for _, requestedCard := range allCards {
+		id := requestedCard.Identifiers.MtgjsonV4Id
+
+		quantity := deck.MainBoard[id]
+		if quantity != 0 { // cardId exists
+			ret.MainBoard[id] = &deckModel.DeckContentEntry{
+				Quantity: quantity,
+				Card:     requestedCard,
+			}
+		}
+
+		quantity = deck.SideBoard[id]
+		if quantity != 0 { // cardId exists
+			ret.SideBoard[id] = &deckModel.DeckContentEntry{
+				Quantity: quantity,
+				Card:     requestedCard,
+			}
+		}
+
+		quantity = deck.Commander[id]
+		if quantity != 0 { // cardId exists
+			ret.Commander[id] = &deckModel.DeckContentEntry{
+				Quantity: quantity,
+				Card:     requestedCard,
+			}
+		}
+	}
 
 	return ret, nil
 }
 
 /*
-AddCards Update the content ids in the deck model passed with new cards. This should
-probably validate cards in the future
+GetDeckBoard - Return a copy of the requested board from the deck
 */
-func AddCards(database *server.Database, deck *deckModel.Deck, newCards *deckModel.DeckContentIds) error {
-	if deck.ContentIds == nil {
+func GetDeckBoard(deck *deckModel.Deck, board string) (map[string]int64, error) {
+	var sourceBoard map[string]int64
+
+	if board == BoardMainboard {
+		sourceBoard = deck.MainBoard
+	} else if board == BoardSideboard {
+		sourceBoard = deck.SideBoard
+	} else if board == BoardCommander {
+		sourceBoard = deck.Commander
+	} else {
+		return nil, sdkErrors.ErrBoardNotExist
+	}
+
+	return sourceBoard, nil
+}
+
+/*
+AddCards - Add cards to a deck within the database. Deck must have a Deck Code associated with it or it will
+error out. Does not validate cards
+*/
+func AddCards(database *server.Database, deck *deckModel.Deck, board string, contents map[string]int64) error {
+	if deck.Code == "" {
 		return sdkErrors.ErrDeckMissingId
 	}
 
-	deck.ContentIds.MainBoard = append(deck.ContentIds.MainBoard, newCards.MainBoard...)
-	deck.ContentIds.SideBoard = append(deck.ContentIds.SideBoard, newCards.SideBoard...)
-	deck.ContentIds.Commander = append(deck.ContentIds.Commander, newCards.Commander...)
-
-	deck.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr() // need better error checking here
-
-	err := ReplaceDeck(database, deck)
+	sourceBoard, err := GetDeckBoard(deck, board)
 	if err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func RemoveCardsFromBoard(deck *deckModel.Deck, cards []string, board string) error {
-	if deck.ContentIds == nil {
-		return sdkErrors.ErrDeckMissingId
-	}
-
-	var sourceBoard *[]string
-	if board == BoardMainboard {
-		sourceBoard = &deck.ContentIds.MainBoard
-	} else if board == BoardSideboard {
-		sourceBoard = &deck.ContentIds.SideBoard
-	} else if board == BoardCommander {
-		sourceBoard = &deck.ContentIds.Commander
-	} else {
-		return sdkErrors.ErrBoardNotExist
-	}
-
-	for _, uuid := range cards {
-		for index, value := range *sourceBoard {
-			if value == uuid {
-				*sourceBoard = slices.Delete(*sourceBoard, index, index+1)
-			}
+	for id, quantity := range contents {
+		check := sourceBoard[id]
+		if check != 0 { // item exists
+			sourceBoard[id] = check + quantity
+		} else {
+			sourceBoard[id] = quantity
 		}
+	}
+
+	if board == BoardMainboard {
+		deck.MainBoard = sourceBoard
+	}
+
+	if board == BoardSideboard {
+		deck.SideBoard = sourceBoard
+	}
+
+	if board == BoardCommander {
+		deck.Commander = sourceBoard
+	}
+
+	// this is really inefficent and should be changed
+	err = ReplaceDeck(database, deck)
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
 /*
-RemoveCards Remove cards from the content ids in the deck model passed.
+RemoveCards - Remove cards from a specified board. Does not validate cards
 */
-func RemoveCards(database *server.Database, deck *deckModel.Deck, removeCards *deckModel.DeckContentIds) error {
-	if deck.ContentIds == nil {
+func RemoveCards(database *server.Database, deck *deckModel.Deck, board string, contents map[string]int64) error {
+	if deck.Code == "" {
 		return sdkErrors.ErrDeckMissingId
 	}
 
-	err := RemoveCardsFromBoard(deck, removeCards.MainBoard, BoardMainboard)
+	sourceBoard, err := GetDeckBoard(deck, board)
 	if err != nil {
 		return err
 	}
 
-	err = RemoveCardsFromBoard(deck, removeCards.SideBoard, BoardSideboard)
-	if err != nil {
-		return err
+	for id, quantity := range contents {
+		check := sourceBoard[id]
+		if check != 0 {
+			sourceBoard[id] = check - quantity
+		}
+
+		if sourceBoard[id] == 0 {
+			delete(sourceBoard, id)
+		}
 	}
 
-	err = RemoveCardsFromBoard(deck, removeCards.Commander, BoardCommander)
-	if err != nil {
-		return err
+	if board == BoardMainboard {
+		deck.MainBoard = sourceBoard
 	}
 
+	if board == BoardSideboard {
+		deck.SideBoard = sourceBoard
+	}
+
+	if board == BoardCommander {
+		deck.Commander = sourceBoard
+	}
+
+	// this is really inefficent and should be changed
 	err = ReplaceDeck(database, deck)
 	if err != nil {
 		return err
