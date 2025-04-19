@@ -209,3 +209,45 @@ func AddCards(database *server.Database, deck *deckModel.Deck, board string, con
 
 	return nil
 }
+
+func RemoveCards(database *server.Database, deck *deckModel.Deck, board string, contents map[string]int64) error {
+	if deck.Code == "" {
+		return sdkErrors.ErrDeckMissingId
+	}
+
+	sourceBoard, err := GetDeckBoard(deck, board)
+	if err != nil {
+		return err
+	}
+
+	for id, quantity := range contents {
+		check := sourceBoard[id]
+		if check != 0 {
+			sourceBoard[id] = check - quantity
+		}
+
+		if sourceBoard[id] == 0 {
+			delete(sourceBoard, id)
+		}
+	}
+
+	if board == BoardMainboard {
+		deck.MainBoard = sourceBoard
+	}
+
+	if board == BoardSideboard {
+		deck.SideBoard = sourceBoard
+	}
+
+	if board == BoardCommander {
+		deck.Commander = sourceBoard
+	}
+
+	// this is really inefficent and should be changed
+	err = ReplaceDeck(database, deck)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
