@@ -3,9 +3,12 @@ package deck
 import (
 	"errors"
 	"github.com/stevezaluk/mtgjson-models/meta"
+	"github.com/stevezaluk/mtgjson-sdk/card"
 	"github.com/stevezaluk/mtgjson-sdk/server"
 	"github.com/stevezaluk/mtgjson-sdk/user"
 	"github.com/stevezaluk/mtgjson-sdk/util"
+	"maps"
+	"slices"
 
 	deckModel "github.com/stevezaluk/mtgjson-models/deck"
 	sdkErrors "github.com/stevezaluk/mtgjson-models/errors"
@@ -145,6 +148,66 @@ func NewDeck(database *server.Database, deck *deckModel.Deck, owner string) erro
 	database.Insert("deck", &deck)
 
 	return nil
+}
+
+/*
+GetDeckContents - Iterates through all the boards in a deck and fetches the card models for each of the cards.
+First all the cardID's across all of the boards are appended to a single list and a single database call is
+consumed to fetch them down. Then they are iterated over and each board is checked for the ID, if it is found
+then it is added its respective board as a deckModel.DeckContentEntry structure
+*/
+func GetDeckContents(database *server.Database, deck *deckModel.Deck) (*deckModel.DeckContents, error) {
+	if deck.MtgjsonApiMeta == nil {
+		return nil, sdkErrors.ErrDeckMissingId
+	}
+
+	if deck.Code == "" || deck.MtgjsonApiMeta.Owner == "" {
+		return nil, sdkErrors.ErrDeckMissingId
+	}
+
+	ret := &deckModel.DeckContents{
+		MainBoard: map[string]*deckModel.DeckContentEntry{},
+		SideBoard: map[string]*deckModel.DeckContentEntry{},
+		Commander: map[string]*deckModel.DeckContentEntry{},
+	}
+
+	allIds := append(slices.Collect(maps.Keys(deck.MainBoard)), slices.Collect(maps.Keys(deck.SideBoard))...)
+	allIds = append(allIds, slices.Collect(maps.Keys(deck.Commander))...)
+
+	allCards, err := card.GetCards(database, allIds)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, requestedCard := range allCards {
+		id := requestedCard.Identifiers.MtgjsonV4Id
+
+		quantity := deck.MainBoard[id]
+		if quantity != 0 { // cardId exists
+			ret.MainBoard[id] = &deckModel.DeckContentEntry{
+				Quantity: quantity,
+				Card:     requestedCard,
+			}
+		}
+
+		quantity = deck.SideBoard[id]
+		if quantity != 0 { // cardId exists
+			ret.SideBoard[id] = &deckModel.DeckContentEntry{
+				Quantity: quantity,
+				Card:     requestedCard,
+			}
+		}
+
+		quantity = deck.Commander[id]
+		if quantity != 0 { // cardId exists
+			ret.Commander[id] = &deckModel.DeckContentEntry{
+				Quantity: quantity,
+				Card:     requestedCard,
+			}
+		}
+	}
+
+	return ret, nil
 }
 
 /*
