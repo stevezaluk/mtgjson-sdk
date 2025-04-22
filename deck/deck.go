@@ -95,6 +95,19 @@ func IndexDecks(database *server.Database, limit int64) ([]*deckModel.Deck, erro
 }
 
 /*
+AllCardIds - Takes a deckModel.DeckContentIds structure and retuns a single slice of strings
+representing all the cardIds across each board
+*/
+func AllCardIds(contents *deckModel.DeckContentIds) []string {
+	var allIds []string
+
+	allIds = append(slices.Collect(maps.Keys(contents.MainBoard)), slices.Collect(maps.Keys(contents.SideBoard))...)
+	allIds = append(allIds, slices.Collect(maps.Keys(contents.Commander))...)
+
+	return allIds
+}
+
+/*
 NewDeck Insert a new deck in the form of a model into the MongoDB database. The deck model must have a
 valid name and deck code, additionally the deck cannot already exist under the same deck code. Owner is
 the email address of the owner you want to assign the deck to. If the string is empty, it will be assigned
@@ -150,13 +163,13 @@ func NewDeck(database *server.Database, deck *deckModel.Deck, owner string) erro
 
 /*
 GetDeckContents - Iterates through all the boards in a deck and fetches the card models for each of the cards.
-First all the cardID's across all of the boards are appended to a single list and a single database call is
+First all the cardID's across all boards are appended to a single list and a single database call is
 consumed to fetch them down. Then they are iterated over and each board is checked for the ID, if it is found
 then it is added its respective board as a deckModel.DeckContentEntry structure
 */
 func GetDeckContents(database *server.Database, deck *deckModel.Deck) (*deckModel.DeckContents, error) {
-	if deck.MtgjsonApiMeta == nil {
-		return nil, sdkErrors.ErrDeckMissingId
+	if deck.Contents == nil {
+		return nil, sdkErrors.ErrDeckMissingContentIds
 	}
 
 	if deck.Code == "" || deck.MtgjsonApiMeta.Owner == "" {
@@ -169,10 +182,7 @@ func GetDeckContents(database *server.Database, deck *deckModel.Deck) (*deckMode
 		Commander: map[string]*deckModel.DeckContentEntry{},
 	}
 
-	allIds := append(slices.Collect(maps.Keys(deck.MainBoard)), slices.Collect(maps.Keys(deck.SideBoard))...)
-	allIds = append(allIds, slices.Collect(maps.Keys(deck.Commander))...)
-
-	allCards, err := card.GetCards(database, allIds)
+	allCards, err := card.GetCards(database, AllCardIds(deck.Contents))
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +190,7 @@ func GetDeckContents(database *server.Database, deck *deckModel.Deck) (*deckMode
 	for _, requestedCard := range allCards {
 		id := requestedCard.Identifiers.MtgjsonV4Id
 
-		quantity := deck.MainBoard[id]
+		quantity := deck.Contents.MainBoard[id]
 		if quantity != 0 { // cardId exists
 			ret.MainBoard[id] = &deckModel.DeckContentEntry{
 				Quantity: quantity,
@@ -188,7 +198,7 @@ func GetDeckContents(database *server.Database, deck *deckModel.Deck) (*deckMode
 			}
 		}
 
-		quantity = deck.SideBoard[id]
+		quantity = deck.Contents.SideBoard[id]
 		if quantity != 0 { // cardId exists
 			ret.SideBoard[id] = &deckModel.DeckContentEntry{
 				Quantity: quantity,
@@ -196,7 +206,7 @@ func GetDeckContents(database *server.Database, deck *deckModel.Deck) (*deckMode
 			}
 		}
 
-		quantity = deck.Commander[id]
+		quantity = deck.Contents.Commander[id]
 		if quantity != 0 { // cardId exists
 			ret.Commander[id] = &deckModel.DeckContentEntry{
 				Quantity: quantity,
