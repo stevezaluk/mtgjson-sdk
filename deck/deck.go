@@ -219,61 +219,49 @@ func GetDeckContents(database *server.Database, deck *deckModel.Deck) (*deckMode
 }
 
 /*
-GetDeckBoard - Return a copy of the requested board from the deck
-*/
-func GetDeckBoard(deck *deckModel.Deck, board string) (map[string]int64, error) {
-	var sourceBoard map[string]int64
-
-	if board == BoardMainboard {
-		sourceBoard = deck.MainBoard
-	} else if board == BoardSideboard {
-		sourceBoard = deck.SideBoard
-	} else if board == BoardCommander {
-		sourceBoard = deck.Commander
-	} else {
-		return nil, sdkErrors.ErrBoardNotExist
-	}
-
-	return sourceBoard, nil
-}
-
-/*
 AddCards - Add cards to a deck within the database. Deck must have a Deck Code associated with it or it will
 error out. Does not validate cards
 */
-func AddCards(database *server.Database, deck *deckModel.Deck, board string, contents map[string]int64) error {
+func AddCards(database *server.Database, deck *deckModel.Deck, contents *deckModel.DeckContentIds) error {
 	if deck.Code == "" {
 		return sdkErrors.ErrDeckMissingId
 	}
 
-	sourceBoard, err := GetDeckBoard(deck, board)
-	if err != nil {
-		return err
+	if deck.Contents == nil {
+		return sdkErrors.ErrDeckMissingContentIds
 	}
 
-	for id, quantity := range contents {
-		check := sourceBoard[id]
-		if check != 0 { // item exists
-			sourceBoard[id] = check + quantity
+	for id, quantity := range contents.MainBoard {
+		check := deck.Contents.MainBoard[id]
+		if check != 0 {
+			deck.Contents.MainBoard[id] = quantity + check
 		} else {
-			sourceBoard[id] = quantity
+			deck.Contents.MainBoard[id] = quantity
 		}
 	}
 
-	if board == BoardMainboard {
-		deck.MainBoard = sourceBoard
+	for id, quantity := range contents.SideBoard {
+		check := deck.Contents.SideBoard[id]
+		if check != 0 {
+			deck.Contents.SideBoard[id] = quantity + check
+		} else {
+			deck.Contents.SideBoard[id] = quantity
+		}
 	}
 
-	if board == BoardSideboard {
-		deck.SideBoard = sourceBoard
+	for id, quantity := range contents.Commander {
+		check := deck.Contents.Commander[id]
+		if check != 0 {
+			deck.Contents.Commander[id] = quantity + check
+		} else {
+			deck.Contents.Commander[id] = quantity
+		}
 	}
 
-	if board == BoardCommander {
-		deck.Commander = sourceBoard
-	}
+	deck.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr()
 
-	// this is really inefficent and should be changed
-	err = ReplaceDeck(database, deck)
+	// this is really in-efficient and should be changed
+	err := ReplaceDeck(database, deck)
 	if err != nil {
 		return err
 	}
@@ -284,41 +272,52 @@ func AddCards(database *server.Database, deck *deckModel.Deck, board string, con
 /*
 RemoveCards - Remove cards from a specified board. Does not validate cards
 */
-func RemoveCards(database *server.Database, deck *deckModel.Deck, board string, contents map[string]int64) error {
+func RemoveCards(database *server.Database, deck *deckModel.Deck, contents *deckModel.DeckContentIds) error {
 	if deck.Code == "" {
 		return sdkErrors.ErrDeckMissingId
 	}
 
-	sourceBoard, err := GetDeckBoard(deck, board)
-	if err != nil {
-		return err
+	if deck.Contents == nil {
+		return sdkErrors.ErrDeckMissingContentIds
 	}
 
-	for id, quantity := range contents {
-		check := sourceBoard[id]
+	for id, quantity := range contents.MainBoard {
+		check := deck.Contents.MainBoard[id]
 		if check != 0 {
-			sourceBoard[id] = check - quantity
+			deck.Contents.MainBoard[id] = check - quantity
 		}
 
-		if sourceBoard[id] == 0 {
-			delete(sourceBoard, id)
+		if deck.Contents.MainBoard[id] == 0 {
+			delete(deck.Contents.MainBoard, id)
 		}
 	}
 
-	if board == BoardMainboard {
-		deck.MainBoard = sourceBoard
+	for id, quantity := range contents.SideBoard {
+		check := deck.Contents.SideBoard[id]
+		if check != 0 {
+			deck.Contents.SideBoard[id] = check - quantity
+		}
+
+		if deck.Contents.SideBoard[id] == 0 {
+			delete(deck.Contents.SideBoard, id)
+		}
 	}
 
-	if board == BoardSideboard {
-		deck.SideBoard = sourceBoard
+	for id, quantity := range contents.Commander {
+		check := deck.Contents.Commander[id]
+		if check != 0 {
+			deck.Contents.Commander[id] = check - quantity
+		}
+
+		if deck.Contents.Commander[id] == 0 {
+			delete(deck.Contents.Commander, id)
+		}
 	}
 
-	if board == BoardCommander {
-		deck.Commander = sourceBoard
-	}
+	deck.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr()
 
-	// this is really inefficent and should be changed
-	err = ReplaceDeck(database, deck)
+	// this is really in-efficient and should be changed
+	err := ReplaceDeck(database, deck)
 	if err != nil {
 		return err
 	}
