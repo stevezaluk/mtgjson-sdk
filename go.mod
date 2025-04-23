@@ -7,7 +7,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/samber/slog-multi v1.2.4
 	github.com/spf13/viper v1.19.0
-	github.com/stevezaluk/mtgjson-models v1.3.8
+	github.com/stevezaluk/mtgjson-models v1.3.9
 	go.mongodb.org/mongo-driver v1.17.1
 )
 
