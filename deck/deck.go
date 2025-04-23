@@ -22,6 +22,27 @@ const (
 )
 
 /*
+GetDeck Fetch a deck from the MongoDB database using the code passed in the parameter. Owner
+is the email address of the user that you want to assign to the deck. If the string is empty
+then it does not filter by user. Returns ErrNoDeck if the deck does not exist or cannot be located
+*/
+func GetDeck(database *server.Database, code string, owner string) (*deckModel.Deck, error) {
+	var result *deckModel.Deck
+
+	query := bson.M{"code": code}
+	if owner != "" {
+		query = bson.M{"code": code, "mtgjsonApiMeta.owner": owner}
+	}
+
+	err := database.Find("deck", query, &result)
+	if !err {
+		return result, sdkErrors.ErrNoDeck
+	}
+
+	return result, nil
+}
+
+/*
 ReplaceDeck Replace the entire deck in the database with the deck model
 passed in the parameter. Returns ErrDeckUpdateFailed if the deck
 cannot be located
@@ -59,27 +80,6 @@ func DeleteDeck(database *server.Database, code string, owner string) error {
 }
 
 /*
-GetDeck Fetch a deck from the MongoDB database using the code passed in the parameter. Owner
-is the email address of the user that you want to assign to the deck. If the string is empty
-then it does not filter by user. Returns ErrNoDeck if the deck does not exist or cannot be located
-*/
-func GetDeck(database *server.Database, code string, owner string) (*deckModel.Deck, error) {
-	var result *deckModel.Deck
-
-	query := bson.M{"code": code}
-	if owner != "" {
-		query = bson.M{"code": code, "mtgjsonApiMeta.owner": owner}
-	}
-
-	err := database.Find("deck", query, &result)
-	if !err {
-		return result, sdkErrors.ErrNoDeck
-	}
-
-	return result, nil
-}
-
-/*
 IndexDecks Returns all decks in the database unmarshalled as deck models. The limit parameter
 will be passed directly to the database query to limit the number of models returned
 */
@@ -92,6 +92,19 @@ func IndexDecks(database *server.Database, limit int64) ([]*deckModel.Deck, erro
 	}
 
 	return result, nil
+}
+
+/*
+AllCardIds - Takes a deckModel.DeckContentIds structure and retuns a single slice of strings
+representing all the cardIds across each board
+*/
+func AllCardIds(contents *deckModel.DeckContentIds) []string {
+	var allIds []string
+
+	allIds = append(slices.Collect(maps.Keys(contents.MainBoard)), slices.Collect(maps.Keys(contents.SideBoard))...)
+	allIds = append(allIds, slices.Collect(maps.Keys(contents.Commander))...)
+
+	return allIds
 }
 
 /*
@@ -121,16 +134,14 @@ func NewDeck(database *server.Database, deck *deckModel.Deck, owner string) erro
 		return sdkErrors.ErrDeckAlreadyExists
 	}
 
-	if deck.MainBoard == nil {
-		deck.MainBoard = map[string]int64{}
-	}
+	if deck.Contents == nil {
+		contents := &deckModel.DeckContentIds{
+			MainBoard: map[string]int64{},
+			SideBoard: map[string]int64{},
+			Commander: map[string]int64{},
+		}
 
-	if deck.SideBoard == nil {
-		deck.SideBoard = map[string]int64{}
-	}
-
-	if deck.Commander == nil {
-		deck.Commander = map[string]int64{}
+		deck.Contents = contents
 	}
 
 	currentDate := util.CreateTimestampStr()
@@ -152,13 +163,13 @@ func NewDeck(database *server.Database, deck *deckModel.Deck, owner string) erro
 
 /*
 GetDeckContents - Iterates through all the boards in a deck and fetches the card models for each of the cards.
-First all the cardID's across all of the boards are appended to a single list and a single database call is
+First all the cardID's across all boards are appended to a single list and a single database call is
 consumed to fetch them down. Then they are iterated over and each board is checked for the ID, if it is found
 then it is added its respective board as a deckModel.DeckContentEntry structure
 */
 func GetDeckContents(database *server.Database, deck *deckModel.Deck) (*deckModel.DeckContents, error) {
-	if deck.MtgjsonApiMeta == nil {
-		return nil, sdkErrors.ErrDeckMissingId
+	if deck.Contents == nil {
+		return nil, sdkErrors.ErrDeckMissingContentIds
 	}
 
 	if deck.Code == "" || deck.MtgjsonApiMeta.Owner == "" {
@@ -171,10 +182,7 @@ func GetDeckContents(database *server.Database, deck *deckModel.Deck) (*deckMode
 		Commander: map[string]*deckModel.DeckContentEntry{},
 	}
 
-	allIds := append(slices.Collect(maps.Keys(deck.MainBoard)), slices.Collect(maps.Keys(deck.SideBoard))...)
-	allIds = append(allIds, slices.Collect(maps.Keys(deck.Commander))...)
-
-	allCards, err := card.GetCards(database, allIds)
+	allCards, err := card.GetCards(database, AllCardIds(deck.Contents))
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +190,7 @@ func GetDeckContents(database *server.Database, deck *deckModel.Deck) (*deckMode
 	for _, requestedCard := range allCards {
 		id := requestedCard.Identifiers.MtgjsonV4Id
 
-		quantity := deck.MainBoard[id]
+		quantity := deck.Contents.MainBoard[id]
 		if quantity != 0 { // cardId exists
 			ret.MainBoard[id] = &deckModel.DeckContentEntry{
 				Quantity: quantity,
@@ -190,7 +198,7 @@ func GetDeckContents(database *server.Database, deck *deckModel.Deck) (*deckMode
 			}
 		}
 
-		quantity = deck.SideBoard[id]
+		quantity = deck.Contents.SideBoard[id]
 		if quantity != 0 { // cardId exists
 			ret.SideBoard[id] = &deckModel.DeckContentEntry{
 				Quantity: quantity,
@@ -198,7 +206,7 @@ func GetDeckContents(database *server.Database, deck *deckModel.Deck) (*deckMode
 			}
 		}
 
-		quantity = deck.Commander[id]
+		quantity = deck.Contents.Commander[id]
 		if quantity != 0 { // cardId exists
 			ret.Commander[id] = &deckModel.DeckContentEntry{
 				Quantity: quantity,
@@ -211,61 +219,49 @@ func GetDeckContents(database *server.Database, deck *deckModel.Deck) (*deckMode
 }
 
 /*
-GetDeckBoard - Return a copy of the requested board from the deck
-*/
-func GetDeckBoard(deck *deckModel.Deck, board string) (map[string]int64, error) {
-	var sourceBoard map[string]int64
-
-	if board == BoardMainboard {
-		sourceBoard = deck.MainBoard
-	} else if board == BoardSideboard {
-		sourceBoard = deck.SideBoard
-	} else if board == BoardCommander {
-		sourceBoard = deck.Commander
-	} else {
-		return nil, sdkErrors.ErrBoardNotExist
-	}
-
-	return sourceBoard, nil
-}
-
-/*
 AddCards - Add cards to a deck within the database. Deck must have a Deck Code associated with it or it will
 error out. Does not validate cards
 */
-func AddCards(database *server.Database, deck *deckModel.Deck, board string, contents map[string]int64) error {
+func AddCards(database *server.Database, deck *deckModel.Deck, contents *deckModel.DeckContentIds) error {
 	if deck.Code == "" {
 		return sdkErrors.ErrDeckMissingId
 	}
 
-	sourceBoard, err := GetDeckBoard(deck, board)
-	if err != nil {
-		return err
+	if deck.Contents == nil {
+		return sdkErrors.ErrDeckMissingContentIds
 	}
 
-	for id, quantity := range contents {
-		check := sourceBoard[id]
-		if check != 0 { // item exists
-			sourceBoard[id] = check + quantity
+	for id, quantity := range contents.MainBoard {
+		check := deck.Contents.MainBoard[id]
+		if check != 0 {
+			deck.Contents.MainBoard[id] = quantity + check
 		} else {
-			sourceBoard[id] = quantity
+			deck.Contents.MainBoard[id] = quantity
 		}
 	}
 
-	if board == BoardMainboard {
-		deck.MainBoard = sourceBoard
+	for id, quantity := range contents.SideBoard {
+		check := deck.Contents.SideBoard[id]
+		if check != 0 {
+			deck.Contents.SideBoard[id] = quantity + check
+		} else {
+			deck.Contents.SideBoard[id] = quantity
+		}
 	}
 
-	if board == BoardSideboard {
-		deck.SideBoard = sourceBoard
+	for id, quantity := range contents.Commander {
+		check := deck.Contents.Commander[id]
+		if check != 0 {
+			deck.Contents.Commander[id] = quantity + check
+		} else {
+			deck.Contents.Commander[id] = quantity
+		}
 	}
 
-	if board == BoardCommander {
-		deck.Commander = sourceBoard
-	}
+	deck.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr()
 
-	// this is really inefficent and should be changed
-	err = ReplaceDeck(database, deck)
+	// this is really in-efficient and should be changed
+	err := ReplaceDeck(database, deck)
 	if err != nil {
 		return err
 	}
@@ -276,41 +272,52 @@ func AddCards(database *server.Database, deck *deckModel.Deck, board string, con
 /*
 RemoveCards - Remove cards from a specified board. Does not validate cards
 */
-func RemoveCards(database *server.Database, deck *deckModel.Deck, board string, contents map[string]int64) error {
+func RemoveCards(database *server.Database, deck *deckModel.Deck, contents *deckModel.DeckContentIds) error {
 	if deck.Code == "" {
 		return sdkErrors.ErrDeckMissingId
 	}
 
-	sourceBoard, err := GetDeckBoard(deck, board)
-	if err != nil {
-		return err
+	if deck.Contents == nil {
+		return sdkErrors.ErrDeckMissingContentIds
 	}
 
-	for id, quantity := range contents {
-		check := sourceBoard[id]
+	for id, quantity := range contents.MainBoard {
+		check := deck.Contents.MainBoard[id]
 		if check != 0 {
-			sourceBoard[id] = check - quantity
+			deck.Contents.MainBoard[id] = check - quantity
 		}
 
-		if sourceBoard[id] == 0 {
-			delete(sourceBoard, id)
+		if deck.Contents.MainBoard[id] == 0 {
+			delete(deck.Contents.MainBoard, id)
 		}
 	}
 
-	if board == BoardMainboard {
-		deck.MainBoard = sourceBoard
+	for id, quantity := range contents.SideBoard {
+		check := deck.Contents.SideBoard[id]
+		if check != 0 {
+			deck.Contents.SideBoard[id] = check - quantity
+		}
+
+		if deck.Contents.SideBoard[id] == 0 {
+			delete(deck.Contents.SideBoard, id)
+		}
 	}
 
-	if board == BoardSideboard {
-		deck.SideBoard = sourceBoard
+	for id, quantity := range contents.Commander {
+		check := deck.Contents.Commander[id]
+		if check != 0 {
+			deck.Contents.Commander[id] = check - quantity
+		}
+
+		if deck.Contents.Commander[id] == 0 {
+			delete(deck.Contents.Commander, id)
+		}
 	}
 
-	if board == BoardCommander {
-		deck.Commander = sourceBoard
-	}
+	deck.MtgjsonApiMeta.ModifiedDate = util.CreateTimestampStr()
 
-	// this is really inefficent and should be changed
-	err = ReplaceDeck(database, deck)
+	// this is really in-efficient and should be changed
+	err := ReplaceDeck(database, deck)
 	if err != nil {
 		return err
 	}
